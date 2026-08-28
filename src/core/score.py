@@ -151,9 +151,7 @@ def normalizar_dependentes(valor: Any) -> Any:
                 f"Número de dependentes inválido: {valor!r}."
             ) from exc
         if numero != valor:
-            raise ScoreInputError(
-                f"Número de dependentes deve ser inteiro: {valor!r}."
-            )
+            raise ScoreInputError(f"Número de dependentes deve ser inteiro: {valor!r}.")
     if numero < 0:
         raise ScoreInputError("Número de dependentes não pode ser negativo.")
     return numero if numero < 3 else "3+"

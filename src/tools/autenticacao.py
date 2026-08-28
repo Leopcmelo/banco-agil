@@ -105,8 +105,10 @@ def _falha(contexto: ContextoAtendimento, motivo: str, detalhe: str) -> Resposta
     restantes = contexto.sessao.registrar_tentativa()
 
     if contexto.sessao.bloqueado:
-        logger.warning("Sessão bloqueada após %d tentativas de autenticação.",
-                       contexto.sessao.tentativas_auth)
+        logger.warning(
+            "Sessão bloqueada após %d tentativas de autenticação.",
+            contexto.sessao.tentativas_auth,
+        )
         return bloqueado(
             "Não foi possível confirmar a identidade após três tentativas.",
             motivo="autenticacao_bloqueada",

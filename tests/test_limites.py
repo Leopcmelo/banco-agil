@@ -151,8 +151,9 @@ def test_guarda_de_score_sem_faixa_e_alcancavel():
 
 
 def test_pedido_dentro_do_teto_e_aprovado():
-    d = avaliar_solicitacao(720, limite_atual=8000, novo_limite_solicitado=12000,
-                            faixas=TABELA)
+    d = avaliar_solicitacao(
+        720, limite_atual=8000, novo_limite_solicitado=12000, faixas=TABELA
+    )
     assert d.status == STATUS_APROVADO
     assert d.aprovado is True
     assert d.limite_permitido == 15000.00
@@ -214,8 +215,9 @@ def test_decisao_serializa_para_dict():
     ],
 )
 def test_valores_monetarios_invalidos_sao_rejeitados(kwargs):
-    base = dict(score=720, limite_atual=8000, novo_limite_solicitado=12000,
-                faixas=TABELA)
+    base = dict(
+        score=720, limite_atual=8000, novo_limite_solicitado=12000, faixas=TABELA
+    )
     base.update(kwargs)
     with pytest.raises(TabelaLimitesError):
         avaliar_solicitacao(**base)

@@ -1,19 +1,21 @@
 # Dependências fixadas com == (convenção do CLAUDE.md, seção 6).
+# Versões conferidas contra o PyPI em 2026-08-28.
 
 # Orquestração dos agentes
-langgraph==0.2.60
-langchain-core==0.3.29
-langchain-google-genai==2.0.8
+langgraph==1.2.11
+langgraph-prebuilt==1.1.0
+langchain-core==1.6.1
+langchain-google-genai==4.3.7
 
 # Dados e UI
-pandas==2.2.3
-streamlit==1.41.1
+pandas==3.0.5
+streamlit==1.62.0
 
 # Infra
-requests==2.32.3
-python-dotenv==1.0.1
+requests==2.34.2
+python-dotenv==1.2.3
 
 # Desenvolvimento e testes
-pytest==8.3.4
-ruff==0.8.6
-black==24.10.0
+pytest==9.1.1
+ruff==0.16.5
+black==26.5.1

@@ -223,14 +223,14 @@ def test_escrita_nao_deixa_arquivo_temporario(repo):
 
 def test_escritas_concorrentes_nao_perdem_linhas(repo):
     """O lock do ADR-006: 20 threads gravando ao mesmo tempo."""
+
     def registrar(indice: int) -> None:
         repo.registrar_solicitacao(
             Solicitacao.nova(
                 CPF_COM_ZEROS,
                 limite_atual=8000,
                 novo_limite_solicitado=9000 + indice,
-                agora=datetime(2026, 8, 28, 10, indice % 60, indice % 60,
-                               tzinfo=UTC),
+                agora=datetime(2026, 8, 28, 10, indice % 60, indice % 60, tzinfo=UTC),
             )
         )
 

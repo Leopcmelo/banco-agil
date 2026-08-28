@@ -131,6 +131,7 @@ def test_configuracao_e_idempotente(tmp_path):
 
 def test_diretorio_sem_permissao_nao_derruba_a_aplicacao(tmp_path, monkeypatch):
     """Perder o log é ruim; derrubar o atendimento é pior."""
+
     def mkdir_que_falha(*args, **kwargs):
         raise OSError("permissão negada")
 

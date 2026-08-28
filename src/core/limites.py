@@ -184,9 +184,7 @@ def avaliar_solicitacao(
         score=valor_score,
         e_aumento=solicitado > atual,
         motivo=(
-            "valor_dentro_do_teto_da_faixa"
-            if cabe
-            else "valor_acima_do_teto_da_faixa"
+            "valor_dentro_do_teto_da_faixa" if cabe else "valor_acima_do_teto_da_faixa"
         ),
     )
 

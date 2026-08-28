@@ -70,9 +70,7 @@ class Cliente:
 
         nome = str(row["nome"]).strip()
         if not nome:
-            raise DadosInvalidosError(
-                f"Nome vazio para o cpf {mascarar_cpf(cpf)}."
-            )
+            raise DadosInvalidosError(f"Nome vazio para o cpf {mascarar_cpf(cpf)}.")
 
         return cls(
             cpf=cpf,
@@ -189,9 +187,7 @@ class Solicitacao:
                 cpf_cliente=normalizar_cpf(row["cpf_cliente"]),
                 data_hora_solicitacao=str(row["data_hora_solicitacao"]),
                 limite_atual=round(float(row["limite_atual"]), 2),
-                novo_limite_solicitado=round(
-                    float(row["novo_limite_solicitado"]), 2
-                ),
+                novo_limite_solicitado=round(float(row["novo_limite_solicitado"]), 2),
                 status_pedido=str(row["status_pedido"]).strip().lower(),
             )
         except (ValueError, TypeError) as exc:

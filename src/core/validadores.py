@@ -72,9 +72,7 @@ def normalizar_cpf(valor: Any) -> str:
     if not digitos:
         raise CPFInvalidoError("CPF não contém nenhum dígito.")
     if len(digitos) != 11:
-        raise CPFInvalidoError(
-            f"CPF deve ter 11 dígitos, mas tem {len(digitos)}."
-        )
+        raise CPFInvalidoError(f"CPF deve ter 11 dígitos, mas tem {len(digitos)}.")
     # 00000000000, 11111111111... passam no módulo 11 mas não são CPFs reais.
     if len(set(digitos)) == 1:
         raise CPFInvalidoError("CPF com todos os dígitos iguais é inválido.")
@@ -142,8 +140,7 @@ def normalizar_data_nascimento(valor: Any, *, hoje: date | None = None) -> str:
                 continue
         else:
             raise DataInvalidaError(
-                f"Data de nascimento não reconhecida: {valor!r}. "
-                f"Use DD/MM/AAAA."
+                f"Data de nascimento não reconhecida: {valor!r}. " f"Use DD/MM/AAAA."
             )
 
     referencia = hoje or date.today()
@@ -269,9 +266,7 @@ def normalizar_valor_monetario(valor: Any, *, nome: str = "Valor") -> float:
 
         corpo = re.sub(r"[^0-9.,]", "", texto)
         if not re.search(r"\d", corpo):
-            raise ValorMonetarioInvalidoError(
-                f"{nome} não reconhecido: {valor!r}."
-            )
+            raise ValorMonetarioInvalidoError(f"{nome} não reconhecido: {valor!r}.")
         try:
             numero = float(_interpretar_separadores(corpo)) * multiplicador
         except ValueError as exc:

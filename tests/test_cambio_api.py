@@ -78,9 +78,7 @@ class SessaoFalsa:
 
 @pytest.fixture()
 def sessao_ok() -> SessaoFalsa:
-    return SessaoFalsa(
-        {"awesomeapi": RESPOSTA_AWESOME, "er-api": RESPOSTA_FALLBACK}
-    )
+    return SessaoFalsa({"awesomeapi": RESPOSTA_AWESOME, "er-api": RESPOSTA_FALLBACK})
 
 
 # --------------------------------------------------------------------------- #
@@ -109,7 +107,7 @@ def test_normalizar_moeda(entrada, esperado):
 
 
 def test_moeda_vazia_usa_o_padrao():
-    """"Qual a cotação?" sem dizer qual moeda significa dólar."""
+    """ "Qual a cotação?" sem dizer qual moeda significa dólar."""
     assert normalizar_moeda("", padrao="USD") == "USD"
     assert normalizar_moeda(None, padrao="USD") == "USD"
 
@@ -171,6 +169,7 @@ def test_descricao_usa_separador_de_milhar_brasileiro():
 
 def test_retry_na_mesma_fonte_antes_de_desistir():
     """Uma falha transitória não deve derrubar a consulta."""
+
     class SessaoInstavel:
         def __init__(self):
             self.chamadas = 0
@@ -206,9 +205,7 @@ def test_fallback_tambem_e_usado_em_erro_http_500():
 
 
 def test_json_malformado_na_primaria_cai_para_o_fallback():
-    sessao = SessaoFalsa(
-        {"awesomeapi": {"inesperado": 1}, "er-api": RESPOSTA_FALLBACK}
-    )
+    sessao = SessaoFalsa({"awesomeapi": {"inesperado": 1}, "er-api": RESPOSTA_FALLBACK})
     assert obter_cotacao("dólar", sessao=sessao).fonte == "open.er-api.com"
 
 

@@ -87,9 +87,7 @@ def exige_sessao_ativa(funcao: Callable[..., Resposta]) -> Callable[..., Respost
             )
 
         if not sessao.autenticado:
-            logger.warning(
-                "Tool %s recusada: sessão não autenticada.", funcao.__name__
-            )
+            logger.warning("Tool %s recusada: sessão não autenticada.", funcao.__name__)
             return erro(
                 "É necessário confirmar CPF e data de nascimento antes de "
                 "acessar qualquer informação da conta.",

@@ -216,9 +216,7 @@ def _consultar_awesome(
         valor=valor,
         nome=str(bloco.get("name") or NOMES_AMIGAVEIS.get(origem, origem)),
         fonte="AwesomeAPI",
-        atualizado_em=str(
-            bloco.get("create_date") or datetime.now(UTC).isoformat()
-        ),
+        atualizado_em=str(bloco.get("create_date") or datetime.now(UTC).isoformat()),
         variacao_pct=_opcional("pctChange"),
         valor_venda=_opcional("ask"),
     )
@@ -238,15 +236,11 @@ def _consultar_fallback(
 
     taxas = dados.get("rates")
     if not isinstance(taxas, dict) or destino not in taxas:
-        raise CambioError(
-            f"Resposta de fallback sem a taxa {origem}->{destino}."
-        )
+        raise CambioError(f"Resposta de fallback sem a taxa {origem}->{destino}.")
     try:
         valor = float(taxas[destino])
     except (TypeError, ValueError) as exc:
-        raise CambioError(
-            f"Taxa malformada na fonte de fallback: {exc}"
-        ) from exc
+        raise CambioError(f"Taxa malformada na fonte de fallback: {exc}") from exc
 
     return Cotacao(
         moeda_origem=origem,
@@ -255,8 +249,7 @@ def _consultar_fallback(
         nome=NOMES_AMIGAVEIS.get(origem, origem),
         fonte="open.er-api.com",
         atualizado_em=str(
-            dados.get("time_last_update_utc")
-            or datetime.now(UTC).isoformat()
+            dados.get("time_last_update_utc") or datetime.now(UTC).isoformat()
         ),
     )
 
@@ -298,8 +291,9 @@ def obter_cotacao(
         except CambioError as exc:
             # Registrado com contexto e seguimos para a próxima fonte —
             # nada de `except: pass` (regra inviolável nº 8).
-            logger.warning("Fonte %s falhou para %s-%s: %s",
-                           nome_fonte, origem, alvo, exc)
+            logger.warning(
+                "Fonte %s falhou para %s-%s: %s", nome_fonte, origem, alvo, exc
+            )
             falhas.append(f"{nome_fonte}: {exc}")
 
     raise CotacaoIndisponivelError(

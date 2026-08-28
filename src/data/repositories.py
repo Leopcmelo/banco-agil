@@ -84,9 +84,7 @@ def _ler_csv(caminho: Path, colunas_esperadas: Iterable[str]) -> pd.DataFrame:
         )
     try:
         # dtype=str + keep_default_na=False: sem inferência de tipo e sem NaN.
-        df = pd.read_csv(
-            caminho, dtype=str, keep_default_na=False, encoding="utf-8"
-        )
+        df = pd.read_csv(caminho, dtype=str, keep_default_na=False, encoding="utf-8")
     except pd.errors.EmptyDataError as exc:
         raise ArquivoDeDadosError(
             f"Arquivo de dados vazio (sem cabeçalho): {caminho}."
@@ -102,8 +100,9 @@ def _ler_csv(caminho: Path, colunas_esperadas: Iterable[str]) -> pd.DataFrame:
     return df
 
 
-def _escrever_csv_atomico(caminho: Path, linhas: list[dict[str, str]],
-                          colunas: list[str]) -> None:
+def _escrever_csv_atomico(
+    caminho: Path, linhas: list[dict[str, str]], colunas: list[str]
+) -> None:
     """Grava via arquivo temporário no mesmo diretório + `os.replace`.
 
     O temporário precisa estar no MESMO diretório: `os.replace` só é atômico
@@ -132,9 +131,7 @@ def _escrever_csv_atomico(caminho: Path, linhas: list[dict[str, str]],
             try:
                 os.unlink(temporario)
             except OSError:
-                logger.warning(
-                    "Não foi possível remover o temporário %s", temporario
-                )
+                logger.warning("Não foi possível remover o temporário %s", temporario)
 
 
 # --------------------------------------------------------------------------- #
@@ -357,9 +354,7 @@ class RepositorioBancoAgil:
         """Devolve os CSVs ao estado original — usado pelo botão de reset da UI."""
         origem = Path(diretorio_seed) if diretorio_seed else self.diretorio / "seed"
         if not origem.is_dir():
-            raise ArquivoDeDadosError(
-                f"Diretório semente não encontrado: {origem}."
-            )
+            raise ArquivoDeDadosError(f"Diretório semente não encontrado: {origem}.")
         with _LOCK:
             self.diretorio.mkdir(parents=True, exist_ok=True)
             for nome in (

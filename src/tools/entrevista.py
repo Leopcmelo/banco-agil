@@ -111,8 +111,7 @@ def registrar_resposta_entrevista(
         except (ScoreInputError, ValorMonetarioInvalidoError) as exc:
             # Falha só neste campo: o que já foi aceito permanece guardado.
             return erro(
-                f"Não consegui interpretar a resposta sobre "
-                f"{PERGUNTAS[campo]}.",
+                f"Não consegui interpretar a resposta sobre " f"{PERGUNTAS[campo]}.",
                 motivo="resposta_invalida",
                 campo=campo,
                 detalhe=str(exc),
