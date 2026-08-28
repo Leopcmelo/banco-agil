@@ -124,6 +124,30 @@ CSV, conforme o enunciado, com um lock de processo na camada de repositório.
 O Streamlit re-executa o script a cada interação; sem lock e sem escrita
 atômica há risco real de linha duplicada ou arquivo truncado.
 
+### ADR-007 — Score na trilha de auditoria
+
+O enunciado prescreve cinco colunas para `solicitacoes_aumento_limite.csv`.
+Auditando o fluxo completo, as duas linhas de um mesmo pedido — rejeitado
+antes da entrevista, aprovado depois — saem assim:
+
+```
+97552487739,...T15:47:18.542908-03:00,300.00,3000.00,rejeitado
+97552487739,...T15:47:18.555949-03:00,300.00,3000.00,aprovado
+```
+
+Idênticas em tudo que importa, exceto o desfecho. O que mudou foi o score, e
+o score não estava sendo gravado — então a decisão não era reconstruível a
+partir do registro, só cruzando com o log de aplicação.
+
+**Decisão: acrescentar `score_na_decisao`** como sexta coluna, gravada junto
+com o pedido `pendente`. É um desvio consciente da especificação, tomado
+porque um registro de crédito que não guarda a base do julgamento não cumpre
+a função de trilha de auditoria que o próprio enunciado pede ao exigir o
+pedido formal antes da decisão.
+
+O campo é **obrigatório** no modelo, e não opcional: um pedido sem a base do
+julgamento é exatamente o problema que a coluna existe para resolver.
+
 ---
 
 ## 4. Esquemas de dados
@@ -167,11 +191,18 @@ um score fora de todas as faixas é erro de dados, não aprovação silenciosa.
 | `data_hora_solicitacao` | str | ISO 8601 com timezone |
 | `limite_atual` | float | |
 | `novo_limite_solicitado` | float | |
+| `score_na_decisao` | int | 0–1000, score que embasou o julgamento |
 | `status_pedido` | str | `pendente` \| `aprovado` \| `rejeitado` |
 
 O pedido é **sempre gravado como `pendente` primeiro**, e só depois atualizado
 para `aprovado`/`rejeitado`. O enunciado pede o registro do pedido formal antes
 da decisão; gravar já decidido perde a trilha de auditoria.
+
+> ⚠️ **`score_na_decisao` é um desvio deliberado do enunciado** (ADR-007). O
+> enunciado lista cinco colunas; esta é a sexta. Sem ela, um pedido rejeitado
+> e outro aprovado depois de uma entrevista ficam idênticos no CSV — mesmo
+> CPF, mesmo limite atual, mesmo valor pedido — e ninguém consegue explicar a
+> diferença. Ver ADR-007.
 
 ---
 

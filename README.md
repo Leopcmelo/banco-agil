@@ -121,7 +121,10 @@ exceção, jamais uma aprovação silenciosa.
 
 **`data/solicitacoes_aumento_limite.csv`** (append) — `cpf_cliente`,
 `data_hora_solicitacao`, `limite_atual`, `novo_limite_solicitado`,
-`status_pedido`.
+`score_na_decisao`, `status_pedido`.
+
+A sexta coluna é um desvio consciente do enunciado, que prescreve cinco — ver
+ADR-007 e o desafio nº 5 abaixo.
 
 O pedido é **sempre gravado como `pendente` primeiro** e só depois transiciona
 para `aprovado` ou `rejeitado`. O enunciado pede o registro do pedido formal
@@ -276,30 +279,40 @@ A conversão fica com o Câmbio, não com o Crédito: ela recebe um número que 
 está na conversa e nunca consulta a conta, então não viola o escopo de nenhum
 agente. Há teste garantindo que só o Câmbio a alcança.
 
-### 5. A trilha de auditoria não registra a base da decisão
+### 5. A trilha de auditoria não explicava a própria decisão
 
-Encontrado na auditoria bancária, e é uma limitação do esquema, não um bug.
-
-Um fluxo de rejeição seguida de entrevista e novo pedido grava isto:
+Encontrado na auditoria bancária. Um fluxo de rejeição seguida de entrevista e
+novo pedido gravava isto:
 
 ```
 97552487739,...T15:47:18.542908-03:00,300.00,3000.00,rejeitado
 97552487739,...T15:47:18.555949-03:00,300.00,3000.00,aprovado
 ```
 
-As duas linhas são idênticas em CPF, limite atual e valor pedido. Só o
-carimbo de tempo e o desfecho mudam. **A partir do CSV sozinho, ninguém
-consegue explicar por que o mesmo pedido foi recusado e depois aceito** — o
-que mudou foi o score, e o score não é gravado.
+As duas linhas são idênticas em CPF, limite atual e valor pedido. Só o carimbo
+de tempo e o desfecho mudam. **A partir do CSV sozinho, ninguém explicava por
+que o mesmo pedido foi recusado e depois aceito** — o que mudou foi o score, e
+o score não era gravado. Dava para reconstruir cruzando com o log de
+aplicação, o que é frágil demais para uma auditoria de crédito.
 
-As cinco colunas são prescritas pelo enunciado, então o código está fiel: a
-lacuna vem do esquema, não da implementação. Acrescentar `score_na_decisao`
-resolveria e é o que um sistema real faria, mas desvia de uma especificação
-explícita — por isso está documentado aqui em vez de decidido sozinho.
+A correção é um **desvio deliberado do enunciado** (ADR-007): ele prescreve
+cinco colunas, e `score_na_decisao` é a sexta. O desvio foi tomado porque um
+registro de crédito que não guarda a base do julgamento não cumpre a função de
+trilha que o próprio enunciado pede ao exigir o pedido formal *antes* da
+decisão.
 
-Mitigação parcial hoje: o log de aplicação registra o score no momento da
-decisão, com CPF mascarado. A reconstrução é possível cruzando log e CSV, o
-que é frágil demais para uma auditoria de crédito de verdade.
+Como fica agora:
+
+```
+97552487739,...,300.00,3000.00,150,rejeitado
+97552487739,...,300.00,3000.00,770,aprovado
+```
+
+Score 150 contra um teto de R$ 500 explica a recusa; 770 contra R$ 15.000
+explica a aprovação. A linha se basta.
+
+O campo é **obrigatório** no modelo, não opcional: um pedido sem a base do
+julgamento é exatamente o problema que a coluna existe para resolver.
 
 ### 6. Provar que a transferência é imperceptível
 
@@ -519,7 +532,7 @@ A barra lateral mostra a tabela completa. Alguns perfis úteis:
    0 dependentes, sem dívidas.
 4. **Aprovação** — o score sobe e o mesmo pedido passa. Confira em
    **Solicitações**, na barra lateral: duas linhas, uma `rejeitado` e outra
-   `aprovado`.
+   `aprovado` — com o score que embasou cada uma ao lado.
 5. **Câmbio** — "qual a cotação do euro?", depois "converta meu limite para
    dólar" (devolve o total, não a cotação unitária).
 6. **Bloqueio** — em **Nova conversa**, erre a data três vezes seguidas.
@@ -598,6 +611,7 @@ documentadas como ADRs no [`CLAUDE.md`](CLAUDE.md):
 | ADR-004 | Transferência implícita entre agentes |
 | ADR-005 | AwesomeAPI como fonte de cotação |
 | ADR-006 | Persistência em CSV com lock e escrita atômica |
+| ADR-007 | `score_na_decisao` na trilha de auditoria |
 
 ---
 

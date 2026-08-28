@@ -179,10 +179,16 @@ with st.sidebar:
                                 # porque é redundante (o painel de sessão acima
                                 # já diz quem está autenticado) e era o que
                                 # empurrava o desfecho para fora.
-                                "Hora": s.data_hora_solicitacao[11:19],
+                                # HH:MM basta no painel; a precisão completa fica no
+                                # CSV. Os segundos empurravam Status para fora.
+                                "Hora": s.data_hora_solicitacao[11:16],
                                 "Pedido": formatar_valor_br(
                                     s.novo_limite_solicitado, casas=0
                                 ),
+                                # A base do julgamento fica ao lado do
+                                # desfecho: é o que permite explicar dois
+                                # pedidos iguais com resultados opostos.
+                                "Score": s.score_na_decisao,
                                 "Status": s.status_pedido,
                             }
                             for s in reversed(solicitacoes)
@@ -193,7 +199,7 @@ with st.sidebar:
                 )
                 st.caption(
                     "Pedidos de todos os clientes, do mais recente ao mais "
-                    "antigo. O CPF fica no painel de sessão, acima."
+                    "antigo. Score é o que embasou cada decisão."
                 )
             else:
                 st.caption("Nenhuma solicitação registrada ainda.")

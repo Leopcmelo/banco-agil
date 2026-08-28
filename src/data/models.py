@@ -133,9 +133,20 @@ class Solicitacao:
     data_hora_solicitacao: str
     limite_atual: float
     novo_limite_solicitado: float
+    # Score que embasou a decisão. Obrigatório de propósito: um pedido sem a
+    # base do julgamento não é auditável, e era exatamente essa a lacuna —
+    # duas linhas idênticas com desfechos opostos, sem nada que explicasse a
+    # diferença. Gravado já na criação, porque nesse momento o score do
+    # cliente é justamente o que a avaliação vai usar.
+    score_na_decisao: int
     status_pedido: str = STATUS_PENDENTE
 
     def __post_init__(self) -> None:
+        if not SCORE_MIN <= self.score_na_decisao <= SCORE_MAX:
+            raise DadosInvalidosError(
+                f"score_na_decisao {self.score_na_decisao} fora de "
+                f"[{SCORE_MIN}, {SCORE_MAX}]."
+            )
         if self.status_pedido not in STATUS_VALIDOS:
             raise DadosInvalidosError(
                 f"status_pedido inválido: {self.status_pedido!r}. "
@@ -148,6 +159,7 @@ class Solicitacao:
         cpf_cliente: str,
         limite_atual: float,
         novo_limite_solicitado: float,
+        score_na_decisao: int,
         *,
         agora: datetime | None = None,
     ) -> Solicitacao:
@@ -165,6 +177,7 @@ class Solicitacao:
             data_hora_solicitacao=momento.isoformat(),
             limite_atual=round(float(limite_atual), 2),
             novo_limite_solicitado=round(float(novo_limite_solicitado), 2),
+            score_na_decisao=int(score_na_decisao),
             status_pedido=STATUS_PENDENTE,
         )
 
@@ -175,6 +188,7 @@ class Solicitacao:
             "data_hora_solicitacao",
             "limite_atual",
             "novo_limite_solicitado",
+            "score_na_decisao",
             "status_pedido",
         } - set(row)
         if faltando:
@@ -188,6 +202,7 @@ class Solicitacao:
                 data_hora_solicitacao=str(row["data_hora_solicitacao"]),
                 limite_atual=round(float(row["limite_atual"]), 2),
                 novo_limite_solicitado=round(float(row["novo_limite_solicitado"]), 2),
+                score_na_decisao=int(row["score_na_decisao"]),
                 status_pedido=str(row["status_pedido"]).strip().lower(),
             )
         except (ValueError, TypeError) as exc:
@@ -201,6 +216,7 @@ class Solicitacao:
             "data_hora_solicitacao": self.data_hora_solicitacao,
             "limite_atual": f"{self.limite_atual:.2f}",
             "novo_limite_solicitado": f"{self.novo_limite_solicitado:.2f}",
+            "score_na_decisao": str(self.score_na_decisao),
             "status_pedido": self.status_pedido,
         }
 
@@ -211,5 +227,6 @@ class Solicitacao:
             data_hora_solicitacao=self.data_hora_solicitacao,
             limite_atual=self.limite_atual,
             novo_limite_solicitado=self.novo_limite_solicitado,
+            score_na_decisao=self.score_na_decisao,
             status_pedido=novo_status,
         )

@@ -88,6 +88,9 @@ def solicitar_aumento_limite(
             cpf_cliente=cliente.cpf,
             limite_atual=cliente.limite_atual,
             novo_limite_solicitado=valor,
+            # A base do julgamento entra junto com o pedido, não depois: é o
+            # que torna a linha reconstruível sozinha, sem cruzar com log.
+            score_na_decisao=cliente.score,
         )
     )
     sessao.ultima_solicitacao_timestamp = solicitacao.data_hora_solicitacao

@@ -230,6 +230,7 @@ def test_escritas_concorrentes_nao_perdem_linhas(repo):
                 CPF_COM_ZEROS,
                 limite_atual=8000,
                 novo_limite_solicitado=9000 + indice,
+                score_na_decisao=720,
                 agora=datetime(2026, 8, 28, 10, indice % 60, indice % 60, tzinfo=UTC),
             )
         )
@@ -249,14 +250,14 @@ def test_escritas_concorrentes_nao_perdem_linhas(repo):
 
 
 def test_solicitacao_nasce_pendente(repo):
-    s = Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000)
+    s = Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720)
     assert s.status_pedido == STATUS_PENDENTE
 
 
 def test_registrar_e_depois_decidir(repo):
     """Grava pendente primeiro e só então transiciona (seção 4 do CLAUDE.md)."""
     solicitacao = repo.registrar_solicitacao(
-        Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000)
+        Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720)
     )
     assert repo.listar_solicitacoes()[0].status_pedido == STATUS_PENDENTE
 
@@ -272,7 +273,7 @@ def test_registrar_e_depois_decidir(repo):
 
 def test_registrar_faz_append_sem_apagar_o_historico(repo):
     for valor in (9000, 10000, 11000):
-        repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, valor))
+        repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, valor, 720))
     assert [s.novo_limite_solicitado for s in repo.listar_solicitacoes()] == [
         9000.0,
         10000.0,
@@ -290,22 +291,22 @@ def test_atualizar_status_de_solicitacao_inexistente_levanta_erro(repo):
 def test_status_invalido_e_rejeitado(repo):
     """ADR-002: 'reprovado' não existe no domínio."""
     with pytest.raises(DadosInvalidosError):
-        Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000).com_status("reprovado")
+        Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720).com_status("reprovado")
 
 
 def test_timestamp_da_solicitacao_tem_timezone(repo):
-    s = Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000)
+    s = Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720)
     assert datetime.fromisoformat(s.data_hora_solicitacao).tzinfo is not None
 
 
 def test_listar_solicitacoes_do_cliente_filtra_por_cpf(repo):
-    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000))
-    repo.registrar_solicitacao(Solicitacao.nova(CPF_CARLA, 20000, 30000))
+    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720))
+    repo.registrar_solicitacao(Solicitacao.nova(CPF_CARLA, 20000, 30000, 890))
     assert len(repo.listar_solicitacoes_do_cliente(CPF_COM_ZEROS)) == 1
 
 
 def test_cpf_da_solicitacao_preserva_zeros_no_arquivo(repo):
-    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000))
+    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720))
     bruto = repo.caminho_solicitacoes.read_text(encoding="utf-8")
     assert CPF_COM_ZEROS in bruto
 
@@ -330,7 +331,7 @@ def test_restaurar_seed_desfaz_as_alteracoes(tmp_path):
 
     repo = RepositorioBancoAgil(destino)
     repo.atualizar_score(CPF_COM_ZEROS, 100)
-    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000))
+    repo.registrar_solicitacao(Solicitacao.nova(CPF_COM_ZEROS, 8000, 12000, 720))
 
     repo.restaurar_seed()
 
@@ -343,13 +344,12 @@ def test_restaurar_seed_sem_diretorio_falha(repo):
         repo.restaurar_seed(repo.diretorio / "inexistente")
 
 
-def test_trilha_nao_distingue_pedidos_iguais_com_desfechos_opostos(repo):
-    """Limitação conhecida do esquema, travada como teste para não surpreender.
+def test_trilha_explica_desfechos_opostos_pelo_score(repo):
+    """ADR-007: a linha precisa se explicar sozinha.
 
-    Duas solicitações idênticas em CPF, limite atual e valor pedido podem ter
-    desfechos opostos (o score mudou entre elas), e o CSV não guarda o score.
-    Se um dia o esquema ganhar a base da decisão, este teste falha e avisa
-    que o README precisa ser atualizado junto.
+    Dois pedidos idênticos em CPF, limite atual e valor podem ter desfechos
+    opostos porque o score mudou entre eles. Sem `score_na_decisao`, o CSV
+    não dava a ninguém como explicar a diferença — só cruzando com o log.
     """
     from datetime import datetime
 
@@ -359,6 +359,7 @@ def test_trilha_nao_distingue_pedidos_iguais_com_desfechos_opostos(repo):
                 CPF_COM_ZEROS,
                 limite_atual=300,
                 novo_limite_solicitado=3000,
+                score_na_decisao=150 if indice == 0 else 770,
                 agora=datetime(2026, 8, 28, 15, 47, indice, tzinfo=UTC),
             )
         )

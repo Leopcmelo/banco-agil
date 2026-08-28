@@ -608,3 +608,57 @@ def test_cambio_recusa_por_decorator_e_deixa_rastro(contexto, caplog):
 
     assert "consultar_cotacao" in caplog.text
     assert "converter_valor" in caplog.text
+
+
+# --------------------------------------------------------------------------- #
+# 9. Trilha de auditoria — ADR-007
+# --------------------------------------------------------------------------- #
+
+
+def test_pedido_grava_o_score_que_embasou_a_decisao(autenticado):
+    """A base do julgamento entra junto com o pedido pendente."""
+    solicitar_aumento_limite(autenticado, 12000)
+    registro = autenticado.repositorio.listar_solicitacoes()[0]
+    assert registro.score_na_decisao == 720  # score da Ana na base semente
+
+
+def test_pedidos_iguais_com_desfechos_opostos_sao_explicaveis(contexto):
+    """O caso que motivou o ADR-007, de ponta a ponta.
+
+    Mesmo CPF, mesmo limite atual, mesmo valor pedido, desfechos opostos. O
+    que distingue as duas linhas — e explica a diferença — é o score.
+    """
+    autenticar_cliente(contexto, CPF_GIOVANA, NASC_GIOVANA)
+    solicitar_aumento_limite(contexto, 3000)  # score 150, teto 500 -> rejeitado
+
+    registrar_resposta_entrevista(
+        contexto,
+        renda_mensal=9000,
+        tipo_emprego="formal",
+        despesas_fixas=1000,
+        num_dependentes=0,
+        tem_dividas="não",
+    )
+    finalizar_entrevista(contexto)
+    solicitar_aumento_limite(contexto, 3000)  # score 770, teto 15000 -> aprovado
+
+    primeiro, segundo = contexto.repositorio.listar_solicitacoes()
+
+    # Idênticos em tudo o que o enunciado prescreve...
+    assert primeiro.limite_atual == segundo.limite_atual
+    assert primeiro.novo_limite_solicitado == segundo.novo_limite_solicitado
+    # ...e ainda assim com desfechos opostos, explicados pelo score.
+    assert (primeiro.status_pedido, segundo.status_pedido) == (
+        STATUS_REJEITADO,
+        STATUS_APROVADO,
+    )
+    assert primeiro.score_na_decisao == 150
+    assert segundo.score_na_decisao == 770
+
+
+def test_score_invalido_na_trilha_e_recusado():
+    """Um score fora da faixa tornaria a linha inauditável."""
+    from src.data.models import DadosInvalidosError, Solicitacao
+
+    with pytest.raises(DadosInvalidosError, match="score_na_decisao"):
+        Solicitacao.nova(CPF_ANA, 8000, 12000, score_na_decisao=1500)

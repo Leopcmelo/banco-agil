@@ -1,3 +1,1 @@
-cpf_cliente,data_hora_solicitacao,limite_atual,novo_limite_solicitado,status_pedido
-97552487739,2026-08-28T15:29:58.034553-03:00,300.00,3000.00,rejeitado
-97552487739,2026-08-28T15:32:39.891011-03:00,300.00,3000.00,aprovado
+cpf_cliente,data_hora_solicitacao,limite_atual,novo_limite_solicitado,score_na_decisao,status_pedido

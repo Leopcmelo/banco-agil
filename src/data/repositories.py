@@ -50,6 +50,7 @@ COLUNAS_SOLICITACOES = [
     "data_hora_solicitacao",
     "limite_atual",
     "novo_limite_solicitado",
+    "score_na_decisao",
     "status_pedido",
 ]
 
