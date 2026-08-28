@@ -193,20 +193,27 @@ def test_sessao_bloqueada_encerra_o_grafo(contexto):
     assert contexto.sessao.autenticado is False
 
 
-def test_encerramento_para_o_loop_imediatamente(contexto):
+def test_encerramento_dá_exatamente_um_turno_de_despedida(contexto):
+    """Encerrar concede UMA fala final ao agente, e nada além dela.
+
+    O enunciado pede tanto a chamada da ferramenta de encerramento quanto uma
+    despedida amigável; o turno extra é o que permite as duas coisas.
+    """
     at = atendimento(
         contexto,
         [
             *ROTEIRO_AUTENTICACAO,
             chama("encerrar_atendimento", motivo="pedido_do_cliente"),
+            fala("Foi um prazer, Ana. Até a próxima!"),
         ],
     )
     at.enviar("oi")
     at.enviar(f"{CPF_ANA}, {NASC_ANA}")
-    at.enviar("obrigado, é só isso")
+    assert at.enviar("obrigado, é só isso") == "Foi um prazer, Ana. Até a próxima!"
 
     assert contexto.sessao.encerrado is True
-    # Nada mais é processado; o roteiro vazio confirmaria uma chamada extra.
+    # Depois disso nada mais é processado; o roteiro vazio confirmaria uma
+    # chamada extra ao modelo.
     assert at.enviar("ainda está aí?") == ""
 
 
@@ -637,3 +644,59 @@ def test_temperatura_vazia_nao_e_enviada(monkeypatch):
     assert _temperatura_configurada() is None
     monkeypatch.setenv("BANCO_AGIL_TEMPERATURA", "0.2")
     assert _temperatura_configurada() == 0.2
+
+
+def test_encerramento_produz_despedida_propria(contexto):
+    """Regressão: o cliente se despedia e recebia a fala ANTERIOR repetida.
+
+    O agente chamava encerrar_atendimento sem texto, o roteador cortava o loop
+    em END, e `ultima_resposta` andava para trás até achar qualquer fala — a
+    cotação do turno anterior. Agora o agente fala uma vez após encerrar.
+    """
+    at = atendimento(
+        contexto,
+        [
+            *ROTEIRO_AUTENTICACAO,
+            chama("direcionar_atendimento", assunto="cambio"),
+            fala("O euro está em R$ 6,04."),
+            chama("encerrar_atendimento", motivo="pedido_do_cliente"),
+            fala("Obrigado pelo contato, Ana. Tenha um ótimo dia!"),
+        ],
+    )
+    at.enviar("oi")
+    at.enviar(f"{CPF_ANA}, {NASC_ANA}")
+    assert at.enviar("qual a cotação do euro?") == "O euro está em R$ 6,04."
+
+    despedida = at.enviar("só isso, obrigado")
+    assert contexto.sessao.encerrado is True
+    assert despedida == "Obrigado pelo contato, Ana. Tenha um ótimo dia!"
+    assert "euro" not in despedida.lower(), "repetiu a fala do turno anterior"
+
+
+def test_turno_sem_fala_nao_devolve_resposta_antiga(contexto):
+    """`ultima_resposta` é limitada ao turno: melhor vazio que fala estranha."""
+    at = atendimento(
+        contexto,
+        [
+            fala("Olá! Pode me informar seu CPF?"),
+            chama("encerrar_atendimento", motivo="pedido_do_cliente"),
+            fala(""),
+        ],
+    )
+    assert at.enviar("oi") == "Olá! Pode me informar seu CPF?"
+    assert at.enviar("deixa pra lá") == ""
+
+
+def test_encerramento_nao_deixa_o_loop_solto(contexto):
+    """Depois de encerrar, o turno acaba mesmo que o modelo peça mais tools."""
+    at = atendimento(
+        contexto,
+        [
+            chama("encerrar_atendimento", motivo="pedido_do_cliente"),
+            chama("consultar_cotacao", moeda="dolar"),
+        ],
+    )
+    at.enviar("tchau")
+    assert contexto.sessao.encerrado is True
+    # O roteiro tinha 2 itens e o grafo consumiu os 2; uma terceira chamada
+    # levantaria AssertionError no dublê, provando que o loop parou.

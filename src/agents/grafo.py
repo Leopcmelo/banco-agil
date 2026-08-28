@@ -347,22 +347,32 @@ def _criar_roteador_entrada(contexto: ContextoAtendimento):
     return roteador_entrada
 
 
-def _rotear_depois_do_agente(estado: EstadoAtendimento) -> str:
+def _criar_roteador_depois_do_agente(contexto: ContextoAtendimento):
     """Se o agente pediu ferramentas, executa; senão o turno acabou."""
-    ultima = estado["messages"][-1]
-    if isinstance(ultima, AIMessage) and getattr(ultima, "tool_calls", None):
-        return NO_FERRAMENTAS
-    return END
+
+    def roteador(estado: EstadoAtendimento) -> str:
+        # Com a sessão encerrada o turno termina aqui, mesmo que o modelo tenha
+        # pedido mais ferramentas. É o que fecha o ciclo do encerramento em
+        # exatamente um passo: ferramentas -> agente (despedida) -> fim.
+        if contexto.sessao.encerrado:
+            return END
+
+        ultima = estado["messages"][-1]
+        if isinstance(ultima, AIMessage) and getattr(ultima, "tool_calls", None):
+            return NO_FERRAMENTAS
+        return END
+
+    return roteador
 
 
 def _criar_roteador_depois_das_ferramentas(contexto: ContextoAtendimento):
     """Devolve o controle ao agente ativo, que agora pode falar."""
 
     def roteador(estado: EstadoAtendimento) -> str:
-        # Encerramento pedido pelo cliente: para o loop imediatamente, sem dar
-        # ao modelo mais uma chance de falar (o enunciado pede exatamente isso).
-        if contexto.sessao.encerrado:
-            return END
+        # Mesmo com a sessão encerrada, o agente volta a falar UMA vez: é o
+        # turno da despedida, que o enunciado pede explicitamente. Quem corta
+        # o loop em seguida é o roteador pós-agente, acima — sem ele, o modelo
+        # calava e a UI acabava repetindo a última fala anterior.
         agente = estado.get("agente") or triagem.NOME
         return agente if agente in AGENTES else triagem.NOME
 
@@ -403,7 +413,7 @@ def construir_grafo(contexto: ContextoAtendimento, llm: BaseChatModel):
     for nome in AGENTES:
         grafo.add_conditional_edges(
             nome,
-            _rotear_depois_do_agente,
+            _criar_roteador_depois_do_agente(contexto),
             {NO_FERRAMENTAS: NO_FERRAMENTAS, END: END},
         )
 
@@ -427,6 +437,10 @@ class Atendimento:
         self.contexto = contexto
         self.grafo = construir_grafo(contexto, llm)
         self.estado: EstadoAtendimento = {"messages": [], "agente": triagem.NOME}
+        # Onde começa o turno atual. Sem isso, um turno em que o agente só
+        # chama ferramentas devolveria a fala do turno ANTERIOR — foi o que
+        # fez a despedida sair como uma repetição da cotação.
+        self._inicio_do_turno = 0
 
     def enviar(self, mensagem: str) -> str:
         """Processa uma mensagem do cliente e devolve a resposta em texto."""
@@ -434,6 +448,7 @@ class Atendimento:
             return ""
 
         self.estado["messages"] = [*self.estado["messages"], ("user", mensagem)]
+        self._inicio_do_turno = len(self.estado["messages"])
         self.estado = self.grafo.invoke(
             self.estado, config={"recursion_limit": LIMITE_RECURSAO}
         )
@@ -441,8 +456,13 @@ class Atendimento:
 
     @property
     def ultima_resposta(self) -> str:
-        """Texto da última fala do assistente, ignorando mensagens de tool."""
-        for mensagem in reversed(self.estado["messages"]):
+        """Texto da última fala do assistente NESTE turno.
+
+        Limitado ao turno de propósito: devolver fala antiga é pior do que
+        devolver vazio — o cliente veria uma resposta que não tem relação com
+        o que acabou de perguntar.
+        """
+        for mensagem in reversed(self.estado["messages"][self._inicio_do_turno :]):
             if isinstance(mensagem, AIMessage):
                 texto = texto_da_mensagem(mensagem)
                 if texto:

@@ -231,7 +231,24 @@ sempre com `dtype=str`, escrita sempre como texto, e dois CPFs iniciados em `0`
 plantados nos dados semente para que o teste de round-trip exercite o caminho
 de verdade.
 
-### 3. Provar que a transferência é imperceptível
+### 3. A despedida que repetia a fala anterior
+
+Só apareceu ao rodar contra o modelo de verdade. O cliente dizia "só isso,
+obrigado" e recebia de volta a cotação do euro — a mesma mensagem do turno
+anterior, palavra por palavra.
+
+Duas causas somadas. O roteador cortava o loop em `END` assim que a sessão
+encerrava, então o agente chamava `encerrar_atendimento` e nunca chegava a
+falar. E `ultima_resposta` varria o histórico inteiro de trás para frente até
+encontrar qualquer fala — achando a do turno passado.
+
+A correção arruma as duas pontas: o encerramento concede **exatamente um**
+turno de despedida (ferramentas → agente → fim, sem laço possível), e
+`ultima_resposta` passou a ser limitada ao turno atual. Devolver vazio é pior
+do que devolver a fala certa, mas é muito melhor do que devolver uma resposta
+que não tem relação com o que o cliente acabou de perguntar.
+
+### 4. Provar que a transferência é imperceptível
 
 Este é o requisito mais difícil de testar, porque o texto vem do modelo.
 
@@ -251,7 +268,7 @@ O que foi feito em vez disso, atacando o problema pelas bordas determinísticas:
 - **Varredura reutilizável** — `marcas_de_transferencia()` é pública e serve
   tanto para os testes com roteiro quanto para auditar uma conversa real.
 
-### 4. Um bug de sinal que quase passou
+### 5. Um bug de sinal que quase passou
 
 O parser de valor monetário aceita linguagem natural ("R$ 12 mil", "5k",
 "1.234,56"). Ele limpava a entrada com `re.sub(r"[^0-9.,]", "", texto)` — o que
@@ -262,14 +279,14 @@ O teste que pegou isso esperava rejeição com uma mensagem; a correção foi
 detectar o sinal **antes** de limpar a pontuação. Vale registrar que a tentação
 aqui era ajustar o teste, e não o código.
 
-### 5. Ambiguidade `rejeitado` vs `reprovado`
+### 6. Ambiguidade `rejeitado` vs `reprovado`
 
 O enunciado usa `'rejeitado'` na definição da coluna e `'reprovado'` no texto
 corrido. Adotei **`rejeitado`** como valor canônico (ADR-002), com domínio
 fechado `{pendente, aprovado, rejeitado}` validado no modelo. `reprovado` não
 existe em lugar nenhum do código.
 
-### 6. Streamlit re-executa o script inteiro
+### 7. Streamlit re-executa o script inteiro
 
 A cada interação, o script roda do começo. Isso quebra duas coisas de forma
 sutil: os handlers de log se acumulam e cada linha sai duplicada; e escritas
