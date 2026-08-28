@@ -36,6 +36,24 @@ DIRETORIO_DADOS = Path(os.getenv("BANCO_AGIL_DATA_DIR", RAIZ / "data"))
 st.set_page_config(page_title="Banco Ágil", page_icon="🏦", layout="centered")
 
 
+def texto_seguro(valor: str) -> str:
+    """Neutraliza a sintaxe de Markdown antes de exibir texto do atendimento.
+
+    Dois casos reais apareceram no primeiro teste em navegador:
+
+    - `R$ 3.000,00 ... R$ 500,00` virava bloco de código, porque o Streamlit lê
+      um par de `$` como delimitador de LaTeX — e todo valor em reais tem `R$`.
+    - A máscara de CPF `***.***.877-39` aparecia como `..877-39`, porque `***`
+      é marcador de ênfase.
+
+    O texto vem do modelo e das tools, então escapar na exibição é mais seguro
+    do que confiar que nenhuma mensagem futura conterá esses caracteres.
+    """
+    for caractere in ("\\", "`", "*", "_", "$", "~"):
+        valor = valor.replace(caractere, "\\" + caractere)
+    return valor
+
+
 # --------------------------------------------------------------------------- #
 # Sessão
 # --------------------------------------------------------------------------- #
@@ -78,7 +96,7 @@ with st.sidebar:
     resumo = contexto.sessao.resumo_seguro()
     if resumo["autenticado"]:
         st.success(f"Autenticado: {resumo['nome_cliente']}")
-        st.caption(f"CPF {resumo['cpf']}")
+        st.caption(f"CPF {texto_seguro(resumo['cpf'])}")
     elif resumo["bloqueado"]:
         st.error("Bloqueado por excesso de tentativas")
     else:
@@ -197,7 +215,7 @@ if st.session_state.erro_inicializacao:
 
 for autor, texto in st.session_state.historico:
     with st.chat_message(autor):
-        st.markdown(texto)
+        st.markdown(texto_seguro(texto))
 
 # A primeira fala é do atendente, como pede o fluxo do enunciado.
 if not st.session_state.historico:
@@ -213,7 +231,7 @@ if not st.session_state.historico:
                 "Tente recarregar a página."
             )
             st.error(str(exc))
-        marcador.markdown(saudacao)
+        marcador.markdown(texto_seguro(saudacao))
     st.session_state.historico.append(("assistant", saudacao))
 
 encerrado = contexto.sessao.encerrado or contexto.sessao.bloqueado
@@ -225,7 +243,7 @@ else:
     if pergunta:
         st.session_state.historico.append(("user", pergunta))
         with st.chat_message("user"):
-            st.markdown(pergunta)
+            st.markdown(texto_seguro(pergunta))
 
         with st.chat_message("assistant"):
             marcador = st.empty()
@@ -241,7 +259,9 @@ else:
                     "Pode tentar de novo?"
                 )
                 st.caption(f"Detalhe técnico: {exc}")
-            marcador.markdown(resposta or "_(atendimento encerrado)_")
+            marcador.markdown(
+                texto_seguro(resposta) if resposta else "_(atendimento encerrado)_"
+            )
 
         st.session_state.historico.append(("assistant", resposta))
         st.rerun()

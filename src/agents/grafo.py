@@ -87,6 +87,16 @@ MODELO_PADRAO_GOOGLE = "gemini-3.6-flash"
 # texto juntos — um teto apertado trunca a resposta no meio.
 MAX_TOKENS_PADRAO = 8192
 
+# Tentativas por chamada. Acima do padrão dos SDKs (2) porque 429 e 529 são
+# rotina em free tier e em horário de pico: um 529 transitório engoliu as duas
+# tentativas padrão e derrubou a saudação inicial num teste real. Só erros
+# retentáveis contam — 4xx de requisição falham na hora.
+MAX_TENTATIVAS_PADRAO = 5
+
+
+def _max_tentativas() -> int:
+    return int(os.getenv("BANCO_AGIL_MAX_TENTATIVAS", MAX_TENTATIVAS_PADRAO))
+
 
 def _temperatura_configurada() -> float | None:
     """Temperatura só quando explicitamente pedida no `.env`.
@@ -115,6 +125,7 @@ def _criar_llm_anthropic(**kwargs: Any) -> BaseChatModel:
         "model": os.getenv("BANCO_AGIL_MODELO_ANTHROPIC", MODELO_PADRAO_ANTHROPIC),
         "api_key": chave,
         "max_tokens": int(os.getenv("BANCO_AGIL_MAX_TOKENS", MAX_TOKENS_PADRAO)),
+        "max_retries": _max_tentativas(),
     }
 
     # Chaves vinculadas a identidade exigem o workspace em toda requisição —
@@ -145,6 +156,7 @@ def _criar_llm_google(**kwargs: Any) -> BaseChatModel:
     parametros: dict[str, Any] = {
         "model": os.getenv("BANCO_AGIL_MODELO", MODELO_PADRAO_GOOGLE),
         "google_api_key": chave,
+        "max_retries": _max_tentativas(),
     }
 
     temperatura = _temperatura_configurada()

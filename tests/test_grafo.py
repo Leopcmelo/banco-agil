@@ -25,6 +25,7 @@ from src.agents.grafo import (
     AGENTES,
     PROVEDORES,
     Atendimento,
+    _max_tentativas,
     _temperatura_configurada,
     construir_grafo,
     criar_llm,
@@ -700,3 +701,14 @@ def test_encerramento_nao_deixa_o_loop_solto(contexto):
     assert contexto.sessao.encerrado is True
     # O roteiro tinha 2 itens e o grafo consumiu os 2; uma terceira chamada
     # levantaria AssertionError no dublê, provando que o loop parou.
+
+
+def test_tentativas_acima_do_padrao_dos_sdks(monkeypatch):
+    """429 e 529 são rotina; duas tentativas não bastaram num teste real."""
+    monkeypatch.delenv("BANCO_AGIL_MAX_TENTATIVAS", raising=False)
+    assert _max_tentativas() >= 3
+
+
+def test_tentativas_sao_configuraveis(monkeypatch):
+    monkeypatch.setenv("BANCO_AGIL_MAX_TENTATIVAS", "9")
+    assert _max_tentativas() == 9
