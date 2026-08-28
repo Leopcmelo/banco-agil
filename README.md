@@ -163,6 +163,8 @@ Cliente: "pode"
 
 **Triagem**
 - Saudação, coleta de CPF e data de nascimento em qualquer formato
+- **Anuncia o que o atendimento resolve** depois de autenticar, em vez de
+  perguntar "como posso ajudar?" e deixar o cliente adivinhar
   (`005.534.793-26` ou `00553479326`; `14/03/1988` ou `1988-03-14`)
 - Autenticação contra `clientes.csv` com validação de dígito verificador
 - Máximo de 3 tentativas; ao esgotar, a sessão é bloqueada e **todas** as
@@ -188,7 +190,8 @@ Cliente: "pode"
 - Cotação de dólar, euro, libra, iene e outras, com fallback entre duas fontes
 - **Conversão de montante** — "converta meu limite para dólar" devolve o total,
   não só o preço unitário
-- Não exige autenticação — cotação e conversão não expõem dado de conta
+- **Atende sem identificação** — quem só quer o preço do dólar não precisa
+  informar CPF; o documento só é pedido para o que envolve a conta
 
 **Transversal**
 - Encerramento por pedido do cliente, a qualquer momento

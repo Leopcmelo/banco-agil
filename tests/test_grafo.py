@@ -752,3 +752,86 @@ def test_as_frases_proibidas_do_prompt_sao_marcas_reais():
     texto = (DIRETORIO_PROMPTS / "credito.md").read_text(encoding="utf-8")
     assert "preciso direcionar isso" in texto
     assert marcas_de_transferencia("Para cotação eu preciso direcionar isso.")
+
+
+# --------------------------------------------------------------------------- #
+# 9. Cotação sem identificação, e anúncio de capacidades
+# --------------------------------------------------------------------------- #
+
+
+def test_cambio_atende_sem_autenticacao(contexto):
+    """Cotação é informação pública: exigir CPF é atrito sem motivo.
+
+    Antes disso, o roteador de entrada mandava todo não-autenticado para a
+    triagem, então o cliente que só queria o preço do dólar era obrigado a se
+    identificar — contradizendo a decisão de deixar as tools de câmbio sem
+    exigência de login.
+    """
+    at = atendimento(
+        contexto,
+        [
+            chama("direcionar_atendimento", assunto="cambio"),
+            fala("O dólar está em R$ 5,42."),
+            fala("O euro está em R$ 6,04."),
+        ],
+    )
+    assert at.enviar("qual a cotação do dólar?") == "O dólar está em R$ 5,42."
+    assert contexto.sessao.autenticado is False
+    assert at.agente_ativo == "cambio"
+
+    # E permanece no câmbio no turno seguinte, sem voltar para a triagem.
+    assert at.enviar("e do euro?") == "O euro está em R$ 6,04."
+    assert at.agente_ativo == "cambio"
+
+
+def test_sem_autenticacao_os_demais_assuntos_voltam_para_triagem(contexto):
+    """A exceção é só o câmbio — crédito e entrevista seguem gateados."""
+    for assunto in ("credito", "entrevista"):
+        llm = LLMRoteirizado(roteiro=[fala("Pode me informar seu CPF?")])
+        at = Atendimento(contexto, llm)
+        at.estado["agente"] = assunto
+        at.enviar("quero aumentar meu limite")
+        assert "porta de entrada do atendimento" in llm.prompts_vistos[-1], assunto
+
+
+def test_prompt_anuncia_capacidades_apos_autenticar():
+    """ "Como posso ajudar?" obriga o cliente a adivinhar o que existe."""
+    texto = (DIRETORIO_PROMPTS / "triagem.md").read_text(encoding="utf-8")
+    for capacidade in ("limite de crédito", "pedido de aumento", "cotação de moedas"):
+        assert capacidade in texto, capacidade
+    assert "O que você precisa?" in texto
+
+
+def test_a_lista_de_capacidades_aparece_uma_vez_so():
+    """Anunciar na saudação E após autenticar fazia o cliente ler a mesma
+    frase duas vezes seguidas."""
+    texto = (DIRETORIO_PROMPTS / "triagem.md").read_text(encoding="utf-8")
+    assert texto.count("ver cotação de moedas") == 1
+    assert "Não liste aqui o que você faz" in texto
+
+
+def test_prompt_de_triagem_dispensa_cpf_para_cotacao():
+    texto = (DIRETORIO_PROMPTS / "triagem.md").read_text(encoding="utf-8")
+    assert "não exige identificação" in texto
+    assert "não peça o CPF" in texto
+
+
+MARCAS_DE_ROBO = (
+    "autenticado com sucesso",
+    "validação concluída",
+    "autenticação confirmada",
+    "identidade verificada",
+)
+
+
+def test_prompt_proibe_narrar_a_autenticacao():
+    """ "Autenticação confirmada" escapou numa conversa real — o prompt
+    proibia duas variantes e o modelo usou uma terceira."""
+    # Espaço normalizado antes da busca: os prompts são quebrados em 79
+    # colunas, então uma frase pode ficar partida no fim da linha — e o teste
+    # não pode depender de onde a quebra caiu.
+    bruto = (DIRETORIO_PROMPTS / "triagem.md").read_text(encoding="utf-8")
+    texto = " ".join(bruto.lower().split())
+    for marca in MARCAS_DE_ROBO:
+        assert marca in texto, f"o prompt precisa proibir {marca!r}"
+    assert "não narre a autenticação" in texto

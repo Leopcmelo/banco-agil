@@ -353,9 +353,13 @@ def _criar_roteador_entrada(contexto: ContextoAtendimento):
             return END
 
         # Sem autenticação, só a triagem roda — independentemente do que o
-        # histórico da conversa sugira.
+        # histórico da conversa sugira. A exceção é o câmbio: as tools dele
+        # não expõem dado de conta e por isso não exigem login, então mandar
+        # o cliente autenticar para saber o preço do dólar seria atrito puro.
+        # As demais tools recusam sozinhas se alguém tentar alcançá-las.
         if not sessao.autenticado:
-            return triagem.NOME
+            agente = estado.get("agente")
+            return cambio.NOME if agente == cambio.NOME else triagem.NOME
 
         agente = estado.get("agente") or triagem.NOME
         return agente if agente in AGENTES else triagem.NOME
