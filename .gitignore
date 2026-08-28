@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Segredos — nunca versionar (regra inviolável nº 7 do CLAUDE.md)
+.env
+.env.local
+
+# Logs de execução
+logs/*.log
+
+# Streamlit
+.streamlit/secrets.toml
+
+# macOS
+.DS_Store
