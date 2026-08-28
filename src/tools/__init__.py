@@ -8,7 +8,7 @@ from src.tools.base import (
     ContextoAtendimento,
     Resposta,
 )
-from src.tools.cambio import consultar_cotacao
+from src.tools.cambio import consultar_cotacao, converter_valor
 from src.tools.credito import (
     consultar_historico_solicitacoes,
     consultar_limite,
@@ -29,6 +29,7 @@ __all__ = [
     "Resposta",
     "autenticar_cliente",
     "consultar_cotacao",
+    "converter_valor",
     "consultar_historico_solicitacoes",
     "consultar_limite",
     "consultar_progresso_entrevista",

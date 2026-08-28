@@ -26,6 +26,7 @@ from src.tools import (
     consultar_historico_solicitacoes,
     consultar_limite,
     consultar_progresso_entrevista,
+    converter_valor,
     encerrar_atendimento,
     finalizar_entrevista,
     registrar_resposta_entrevista,
@@ -468,3 +469,104 @@ def test_encerrar_duas_vezes_e_idempotente(autenticado):
     encerrar_atendimento(autenticado)
     r = encerrar_atendimento(autenticado)
     assert r["dados"]["ja_encerrado"] is True
+
+
+# --------------------------------------------------------------------------- #
+# 8. Conversão de valor — a aritmética que o agente não pode fazer
+# --------------------------------------------------------------------------- #
+
+
+class _CotacaoBRLUSD:
+    moeda_origem = "BRL"
+    moeda_destino = "USD"
+    valor = 0.1914
+    descricao = "1 real = 0,1914 USD"
+    variacao_pct = None
+    atualizado_em = "2026-08-28 12:00:00"
+    fonte = "AwesomeAPI"
+
+
+def test_converte_limite_para_dolar(contexto, monkeypatch):
+    """O caso que motivou a tool: o cliente pede o limite em dólar."""
+    monkeypatch.setattr(
+        "src.tools.cambio.obter_cotacao", lambda *a, **k: _CotacaoBRLUSD()
+    )
+    r = converter_valor(contexto, "8000", "BRL", "USD")
+    assert r["status"] == STATUS_OK
+    assert r["dados"]["valor_convertido"] == 1531.20
+    assert r["dados"]["moeda_destino"] == "USD"
+
+
+def test_descricao_traz_o_total_e_nao_so_a_cotacao(contexto, monkeypatch):
+    """A queixa original era receber só o preço unitário."""
+    monkeypatch.setattr(
+        "src.tools.cambio.obter_cotacao", lambda *a, **k: _CotacaoBRLUSD()
+    )
+    descricao = converter_valor(contexto, "8000", "BRL", "USD")["dados"]["descricao"]
+    assert descricao == "R$ 8.000,00 = US$ 1.531,20"
+
+
+def test_conversao_aceita_valor_em_linguagem_natural(contexto, monkeypatch):
+    monkeypatch.setattr(
+        "src.tools.cambio.obter_cotacao", lambda *a, **k: _CotacaoBRLUSD()
+    )
+    r = converter_valor(contexto, "R$ 8 mil", "BRL", "USD")
+    assert r["dados"]["valor_convertido"] == 1531.20
+
+
+def test_conversao_nao_exige_autenticacao(contexto, monkeypatch):
+    """Converter um número informado não expõe dado de conta."""
+    monkeypatch.setattr(
+        "src.tools.cambio.obter_cotacao", lambda *a, **k: _CotacaoBRLUSD()
+    )
+    assert contexto.sessao.autenticado is False
+    assert converter_valor(contexto, "100")["status"] == STATUS_OK
+
+
+def test_conversao_recusa_em_sessao_bloqueada(contexto):
+    for _ in range(3):
+        autenticar_cliente(contexto, CPF_ANA, "01/01/1990")
+    assert converter_valor(contexto, "100")["status"] == STATUS_BLOQUEADO
+
+
+@pytest.mark.parametrize("valor", ["muito", None, -50])
+def test_valor_invalido_para_conversao(contexto, valor):
+    r = converter_valor(contexto, valor)
+    assert r["status"] == STATUS_ERRO
+    assert r["dados"]["motivo"] == "valor_invalido"
+
+
+def test_moedas_iguais_e_recusado(contexto):
+    r = converter_valor(contexto, "100", "BRL", "BRL")
+    assert r["status"] == STATUS_ERRO
+    assert r["dados"]["motivo"] == "moedas_iguais"
+
+
+def test_moeda_desconhecida_na_conversao(contexto):
+    r = converter_valor(contexto, "100", "BRL", "batata")
+    assert r["status"] == STATUS_ERRO
+    assert r["dados"]["motivo"] == "moeda_nao_suportada"
+
+
+def test_cotacao_indisponivel_na_conversao(contexto, monkeypatch):
+    def falhar(*args, **kwargs):
+        raise cambio_api.CotacaoIndisponivelError("as duas fontes caíram")
+
+    monkeypatch.setattr("src.tools.cambio.obter_cotacao", falhar)
+    r = converter_valor(contexto, "100")
+    assert r["dados"]["motivo"] == "cotacao_indisponivel"
+    assert "outro assunto" in r["mensagem"]
+
+
+def test_cotacao_zero_nao_zera_o_dinheiro_do_cliente(contexto, monkeypatch):
+    """Dado ruim da fonte deve falhar, não devolver montante zero."""
+
+    class _CotacaoZerada(_CotacaoBRLUSD):
+        valor = 0.0
+
+    monkeypatch.setattr(
+        "src.tools.cambio.obter_cotacao", lambda *a, **k: _CotacaoZerada()
+    )
+    r = converter_valor(contexto, "8000")
+    assert r["status"] == STATUS_ERRO
+    assert r["dados"]["motivo"] == "cotacao_invalida"

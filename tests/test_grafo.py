@@ -86,9 +86,14 @@ def test_triagem_e_a_unica_com_a_tool_de_autenticacao(contexto):
 
 
 def test_cambio_nao_alcanca_nada_de_credito(contexto):
-    """O agente de Câmbio não fala de limite (regra inviolável nº 5)."""
+    """O agente de Câmbio não fala de limite (regra inviolável nº 5).
+
+    Converter um montante é câmbio, não crédito: a tool recebe o número já
+    informado e nunca consulta a conta.
+    """
     tools = _nomes_das_tools(cambio, contexto)
     assert "consultar_cotacao" in tools
+    assert "converter_valor" in tools
     for proibida in (
         "consultar_limite",
         "solicitar_aumento_limite",
@@ -104,6 +109,7 @@ def test_credito_nao_conduz_entrevista(contexto):
     assert "registrar_resposta_entrevista" not in tools
     assert "finalizar_entrevista" not in tools
     assert "consultar_cotacao" not in tools
+    assert "converter_valor" not in tools
 
 
 def test_entrevista_nao_aprova_limite(contexto):
@@ -712,3 +718,18 @@ def test_tentativas_acima_do_padrao_dos_sdks(monkeypatch):
 def test_tentativas_sao_configuraveis(monkeypatch):
     monkeypatch.setenv("BANCO_AGIL_MAX_TENTATIVAS", "9")
     assert _max_tentativas() == 9
+
+
+def test_conversao_e_exclusiva_do_cambio(contexto):
+    """Nenhum outro agente multiplica valor — nem o de crédito."""
+    for modulo in (triagem, credito, entrevista):
+        assert "converter_valor" not in _nomes_das_tools(modulo, contexto)
+
+
+def test_prompt_de_cambio_distingue_cotacao_de_conversao():
+    """Regressão da queixa: o agente devolvia a cotação unitária e dizia que
+    não fazia a conta."""
+    texto = (DIRETORIO_PROMPTS / "cambio.md").read_text(encoding="utf-8")
+    assert "converter_valor" in texto
+    assert "consultar_cotacao" in texto
+    assert "Nunca multiplique você mesmo" in texto

@@ -50,6 +50,7 @@ src/core/                 Regra de negócio pura — sem I/O, sem LLM, 100% test
    │  score.py            Cálculo do score
    │  limites.py          Faixa de score → limite, e a decisão aprovado/rejeitado
    │  validadores.py      CPF, data e valor monetário
+   │  conversao.py        Conversão de montante entre moedas
    ▼
 src/data/repositories.py  Única porta de entrada para os CSVs
 ```
@@ -182,7 +183,9 @@ Cliente: "pode"
 
 **Câmbio**
 - Cotação de dólar, euro, libra, iene e outras, com fallback entre duas fontes
-- Não exige autenticação — cotação é informação pública
+- **Conversão de montante** — "converta meu limite para dólar" devolve o total,
+  não só o preço unitário
+- Não exige autenticação — cotação e conversão não expõem dado de conta
 
 **Transversal**
 - Encerramento por pedido do cliente, a qualquer momento
@@ -248,7 +251,32 @@ turno de despedida (ferramentas → agente → fim, sem laço possível), e
 do que devolver a fala certa, mas é muito melhor do que devolver uma resposta
 que não tem relação com o que o cliente acabou de perguntar.
 
-### 4. Provar que a transferência é imperceptível
+### 4. O agente que não fazia a conta
+
+Pedir "converta meu limite para dólar" devolvia só a cotação unitária, com o
+agente explicando que não fazia o cálculo. Ele estava **certo** em recusar — a
+regra nº 1 proíbe o LLM de multiplicar — mas a recusa expunha uma lacuna do
+sistema, não um limite desejável.
+
+A correção não foi afrouxar a regra: foi criar a função que faltava.
+`src/core/conversao.py` faz a aritmética em código, com `Decimal` e
+arredondamento meio-para-cima, e a tool `converter_valor` a compõe com a
+cotação.
+
+Duas decisões de precisão que valem registro:
+
+- **A cotação nunca é invertida.** Para converter reais em dólares, o par
+  `BRL-USD` é pedido à fonte em vez de dividir por `USD-BRL`. Inverter
+  introduziria erro e ignoraria o spread entre compra e venda.
+- **Cotação zero falha em vez de zerar o montante.** Um dado ruim da fonte que
+  transformasse R$ 8.000 em R$ 0,00 seria muito pior do que uma mensagem de
+  indisponibilidade.
+
+A conversão fica com o Câmbio, não com o Crédito: ela recebe um número que já
+está na conversa e nunca consulta a conta, então não viola o escopo de nenhum
+agente. Há teste garantindo que só o Câmbio a alcança.
+
+### 5. Provar que a transferência é imperceptível
 
 Este é o requisito mais difícil de testar, porque o texto vem do modelo.
 
@@ -268,7 +296,7 @@ O que foi feito em vez disso, atacando o problema pelas bordas determinísticas:
 - **Varredura reutilizável** — `marcas_de_transferencia()` é pública e serve
   tanto para os testes com roteiro quanto para auditar uma conversa real.
 
-### 5. Um bug de sinal que quase passou
+### 6. Um bug de sinal que quase passou
 
 O parser de valor monetário aceita linguagem natural ("R$ 12 mil", "5k",
 "1.234,56"). Ele limpava a entrada com `re.sub(r"[^0-9.,]", "", texto)` — o que
@@ -279,14 +307,14 @@ O teste que pegou isso esperava rejeição com uma mensagem; a correção foi
 detectar o sinal **antes** de limpar a pontuação. Vale registrar que a tentação
 aqui era ajustar o teste, e não o código.
 
-### 6. Ambiguidade `rejeitado` vs `reprovado`
+### 7. Ambiguidade `rejeitado` vs `reprovado`
 
 O enunciado usa `'rejeitado'` na definição da coluna e `'reprovado'` no texto
 corrido. Adotei **`rejeitado`** como valor canônico (ADR-002), com domínio
 fechado `{pendente, aprovado, rejeitado}` validado no modelo. `reprovado` não
 existe em lugar nenhum do código.
 
-### 7. Streamlit re-executa o script inteiro
+### 8. Streamlit re-executa o script inteiro
 
 A cada interação, o script roda do começo. Isso quebra duas coisas de forma
 sutil: os handlers de log se acumulam e cada linha sai duplicada; e escritas
@@ -450,7 +478,8 @@ A barra lateral mostra a tabela completa. Alguns perfis úteis:
 4. **Aprovação** — o score sobe e o mesmo pedido passa. Confira em
    **Solicitações**, na barra lateral: duas linhas, uma `rejeitado` e outra
    `aprovado`.
-5. **Câmbio** — "qual a cotação do euro?".
+5. **Câmbio** — "qual a cotação do euro?", depois "converta meu limite para
+   dólar" (devolve o total, não a cotação unitária).
 6. **Bloqueio** — em **Nova conversa**, erre a data três vezes seguidas.
 7. **Reset** — o botão **Resetar dados** devolve tudo ao estado inicial.
 
@@ -476,6 +505,7 @@ O que a suíte cobre, por camada:
 | `test_score.py` | Fórmula, teto, clamp, monotonicidade, normalização |
 | `test_limites.py` | Faixas, bordas inclusivas, decisão aprovado/rejeitado |
 | `test_validadores.py` | CPF, data, valor monetário em linguagem natural |
+| `test_conversao.py` | Conversão de montante, arredondamento, cotação inválida |
 | `test_repositories.py` | Round-trip CSV, escrita atômica, concorrência |
 | `test_session.py` | Autenticação e contagem de tentativas |
 | `test_logging_config.py` | Mascaramento de CPF e data |

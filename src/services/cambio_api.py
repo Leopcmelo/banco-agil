@@ -99,6 +99,29 @@ NOMES_AMIGAVEIS: dict[str, str] = {
 }
 
 
+# Símbolo por moeda. Usado ao exibir um MONTANTE: "8.000,00 real" está errado
+# em português, e pluralizar cada nome seria trabalho para um ganho menor do
+# que simplesmente usar o símbolo, que já é o padrão em extrato bancário.
+SIMBOLOS: dict[str, str] = {
+    "BRL": "R$",
+    "USD": "US$",
+    "EUR": "€",
+    "GBP": "£",
+    "JPY": "¥",
+    "CHF": "CHF",
+    "CAD": "C$",
+    "AUD": "A$",
+    "CNY": "CN¥",
+    "ARS": "AR$",
+    "BTC": "₿",
+}
+
+
+def simbolo_da_moeda(codigo: str) -> str:
+    """Símbolo da moeda, ou o próprio código ISO quando não houver."""
+    return SIMBOLOS.get(codigo.upper(), codigo.upper())
+
+
 @dataclass(frozen=True)
 class Cotacao:
     """Uma cotação já normalizada, pronta para o agente verbalizar."""

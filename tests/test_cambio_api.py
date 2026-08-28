@@ -287,3 +287,26 @@ def test_par_arbitrario(sessao_ok):
     assert c.moeda_origem == "EUR"
     assert c.moeda_destino == "USD"
     assert c.valor == 1.0850
+
+
+# --------------------------------------------------------------------------- #
+# 5. Símbolos de moeda
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "codigo,esperado",
+    [("BRL", "R$"), ("USD", "US$"), ("EUR", "€"), ("brl", "R$"), ("SEK", "SEK")],
+)
+def test_simbolo_da_moeda(codigo, esperado):
+    """Sem símbolo conhecido, o próprio código ISO serve."""
+    from src.services.cambio_api import simbolo_da_moeda
+
+    assert simbolo_da_moeda(codigo) == esperado
+
+
+def test_simbolo_evita_o_singular_errado():
+    """ "8.000,00 real" está errado em português; o símbolo não tem plural."""
+    from src.services.cambio_api import simbolo_da_moeda
+
+    assert simbolo_da_moeda("BRL") == "R$"
