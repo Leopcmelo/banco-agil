@@ -541,6 +541,21 @@ black --check src tests app.py
 
 ---
 
+## Agentes de análise de código
+
+O [`AGENTS.md`](AGENTS.md) define quatro agentes especializados para revisar o
+projeto — Segurança, Verificador de Agentes Conversacionais, Experiência do
+Usuário e Bancário. Não confundir com os quatro agentes de atendimento, que
+são o produto: estes analisam o código.
+
+Cada um traz o que auditar, como trabalhar e o formato de relatório. Para
+ativar, comece a sessão com:
+
+> "Leia o `CLAUDE.md` e o `AGENTS.md`. Ative o Agente de Segurança. Quero
+> revisar a camada de tools antes de tornar o repositório público."
+
+---
+
 ## Decisões arquiteturais
 
 As ambiguidades do enunciado foram resolvidas explicitamente e estão
