@@ -238,3 +238,61 @@ def test_valor_monetario_invalido(entrada, trecho):
 def test_mensagem_de_erro_usa_o_nome_do_campo():
     with pytest.raises(ValorMonetarioInvalidoError, match="Renda mensal"):
         normalizar_valor_monetario("abc", nome="Renda mensal")
+
+
+# --------------------------------------------------------------------------- #
+# 4. Bordas de formato
+# --------------------------------------------------------------------------- #
+
+
+def test_data_aceita_objeto_datetime():
+    """O repositório pode entregar datetime; a normalização não pode quebrar."""
+    from datetime import datetime
+
+    assert (
+        normalizar_data_nascimento(datetime(1988, 3, 14, 10, 30), hoje=HOJE)
+        == "1988-03-14"
+    )
+
+
+@pytest.mark.parametrize(
+    "entrada,esperado",
+    [
+        ("1,500", 1500.00),  # vírgula como separador de milhar
+        ("1,500,000", 1500000.00),
+        (",50", 50.00),  # sem parte inteira
+        ("12.345.678", 12345678.00),  # ponto como milhar, três grupos
+    ],
+)
+def test_separadores_ambiguos(entrada, esperado):
+    """Mais de dois dígitos depois do separador significa milhar, não centavo."""
+    assert normalizar_valor_monetario(entrada) == esperado
+
+
+def test_pontuacao_incoerente_e_rejeitada():
+    """Tem dígitos, mas a pontuação não forma número nenhum."""
+    with pytest.raises(ValorMonetarioInvalidoError, match="não reconhecido"):
+        normalizar_valor_monetario("1.2,3.4")
+
+
+@pytest.mark.parametrize(
+    "entrada,esperado",
+    [
+        ("mil reais", 1000.00),
+        ("mil", 1000.00),
+        ("R$ mil", 1000.00),
+        ("um milhao", 1000000.00),
+        ("milhao", 1000000.00),
+    ],
+)
+def test_multiplicador_sem_quantidade(entrada, esperado):
+    """Regressão: um cliente real respondeu "mil reais" numa entrevista e a
+    resposta era recusada, obrigando o agente a repetir a pergunta."""
+    assert normalizar_valor_monetario(entrada) == esperado
+
+
+def test_texto_sem_numero_e_sem_multiplicador_continua_invalido():
+    """A correção do caso "mil" não pode passar a aceitar qualquer palavra."""
+    for entrada in ("muito dinheiro", "bastante", "sei la"):
+        with pytest.raises(ValorMonetarioInvalidoError):
+            normalizar_valor_monetario(entrada)

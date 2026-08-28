@@ -253,8 +253,10 @@ def normalizar_valor_monetario(valor: Any, *, nome: str = "Valor") -> float:
         multiplicador = 1
         for sufixo, fator in _MULTIPLICADORES.items():
             # `\b` não funciona para "5k" colado, então casamos o sufixo no fim.
-            padrao = rf"(?:\s|\d){re.escape(sufixo)}\s*$"
-            if re.search(padrao, texto) or texto.endswith(f" {sufixo}"):
+            # O `^` cobre o multiplicador sozinho: um cliente real respondeu
+            # "mil reais" numa entrevista, e sem isso a resposta era recusada.
+            padrao = rf"(?:^|\s|\d){re.escape(sufixo)}\s*$"
+            if re.search(padrao, texto):
                 multiplicador = fator
                 texto = re.sub(rf"{re.escape(sufixo)}\s*$", "", texto).strip()
                 break
@@ -265,14 +267,20 @@ def normalizar_valor_monetario(valor: Any, *, nome: str = "Valor") -> float:
             raise ValorMonetarioInvalidoError(f"{nome} não pode ser negativo.")
 
         corpo = re.sub(r"[^0-9.,]", "", texto)
+
         if not re.search(r"\d", corpo):
-            raise ValorMonetarioInvalidoError(f"{nome} não reconhecido: {valor!r}.")
-        try:
-            numero = float(_interpretar_separadores(corpo)) * multiplicador
-        except ValueError as exc:
-            raise ValorMonetarioInvalidoError(
-                f"{nome} não reconhecido: {valor!r}."
-            ) from exc
+            # "mil" sem quantidade é mil, não erro. Sem multiplicador, porém,
+            # não sobrou dígito nenhum e a entrada é mesmo irreconhecível.
+            if multiplicador == 1:
+                raise ValorMonetarioInvalidoError(f"{nome} não reconhecido: {valor!r}.")
+            numero = float(multiplicador)
+        else:
+            try:
+                numero = float(_interpretar_separadores(corpo)) * multiplicador
+            except ValueError as exc:
+                raise ValorMonetarioInvalidoError(
+                    f"{nome} não reconhecido: {valor!r}."
+                ) from exc
 
     if math.isnan(numero) or math.isinf(numero):
         raise ValorMonetarioInvalidoError(f"{nome} deve ser um número finito.")

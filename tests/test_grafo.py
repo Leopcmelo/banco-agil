@@ -21,7 +21,12 @@ from langchain_core.messages import AIMessage
 
 from src.agents import cambio, credito, entrevista, triagem
 from src.agents.base import DIRETORIO_PROMPTS, carregar_prompt
-from src.agents.grafo import AGENTES, Atendimento, construir_grafo
+from src.agents.grafo import (
+    AGENTES,
+    Atendimento,
+    construir_grafo,
+    texto_da_mensagem,
+)
 from src.data.repositories import RepositorioBancoAgil
 from src.session import SessionState
 from src.tools.base import ContextoAtendimento
@@ -496,3 +501,90 @@ def test_prompt_de_cada_agente_inclui_o_comum():
     )
     for nome in AGENTES:
         assert comum_inicio in carregar_prompt(nome)
+
+
+# --------------------------------------------------------------------------- #
+# 7. Extração de texto — content nem sempre é str
+# --------------------------------------------------------------------------- #
+
+
+def test_texto_de_content_string_simples():
+    assert texto_da_mensagem(AIMessage(content="Olá!")) == "Olá!"
+
+
+def test_texto_de_blocos_do_gemini_3():
+    """Gemini 3.x devolve blocos; um str() ingênuo vazaria a assinatura."""
+    mensagem = AIMessage(
+        content=[
+            {
+                "type": "text",
+                "text": "Tudo certo, Giovana. Como posso ajudar?",
+                "extras": {"signature": "EoIECv8DARFNMg9EyPD5v8Vol..."},
+            }
+        ]
+    )
+    texto = texto_da_mensagem(mensagem)
+    assert texto == "Tudo certo, Giovana. Como posso ajudar?"
+    assert "signature" not in texto
+    assert "extras" not in texto
+
+
+def test_blocos_nao_textuais_sao_ignorados():
+    """Raciocínio interno e chamadas de ferramenta não vão para a conversa."""
+    mensagem = AIMessage(
+        content=[
+            {"type": "thinking", "thinking": "o cliente pediu o limite"},
+            {"type": "text", "text": "Seu limite é de R$ 8.000,00."},
+            {"type": "tool_use", "name": "consultar_limite", "input": {}},
+        ]
+    )
+    assert texto_da_mensagem(mensagem) == "Seu limite é de R$ 8.000,00."
+
+
+def test_varios_blocos_de_texto_sao_concatenados():
+    mensagem = AIMessage(
+        content=[
+            {"type": "text", "text": "Primeira."},
+            {"type": "text", "text": "Segunda."},
+        ]
+    )
+    assert texto_da_mensagem(mensagem) == "Primeira.\nSegunda."
+
+
+@pytest.mark.parametrize("conteudo", ["", [], [{"type": "thinking"}]])
+def test_conteudo_sem_texto_vira_string_vazia(conteudo):
+    assert texto_da_mensagem(AIMessage(content=conteudo)) == ""
+
+
+def test_content_de_tipo_inesperado_nao_quebra():
+    """Defesa contra mudança de formato de provedor: mostra algo em vez de
+    engolir a mensagem. `AIMessage` só aceita str ou list, então o caso é
+    testado com um dublê."""
+
+    class MensagemEstranha:
+        content = 42
+
+    assert texto_da_mensagem(MensagemEstranha()) == "42"
+
+
+def test_lista_de_strings_puras():
+    assert (
+        texto_da_mensagem(AIMessage(content=["Olá", "tudo bem?"])) == "Olá\ntudo bem?"
+    )
+
+
+def test_ultima_resposta_usa_o_extrator(contexto):
+    """A UI recebe texto limpo mesmo quando o modelo devolve blocos."""
+    at = atendimento(contexto, [])
+    at.estado["messages"] = [
+        AIMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "Seu limite atual é de R$ 8.000,00.",
+                    "extras": {"signature": "abc123"},
+                }
+            ]
+        )
+    ]
+    assert at.ultima_resposta == "Seu limite atual é de R$ 8.000,00."

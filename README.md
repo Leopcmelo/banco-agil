@@ -1,5 +1,7 @@
 # 🏦 Banco Ágil — atendimento bancário multiagente
 
+[![CI](https://github.com/Leopcmelo/banco-agil/actions/workflows/ci.yml/badge.svg)](https://github.com/Leopcmelo/banco-agil/actions/workflows/ci.yml)
+
 Sistema de atendimento ao cliente para um banco digital fictício, construído
 com quatro agentes de IA especializados que, para o cliente, se comportam como
 **um único atendente**.
@@ -292,11 +294,21 @@ CrewAI foi descartado por ser orientado a delegação verbosa entre papéis, que
 briga com o requisito de transição imperceptível. Google ADK tem handoff nativo,
 mas menos controlável e mais difícil de testar sem chave.
 
-### Gemini 2.5 Flash
+### Gemini 3.6 Flash
 
-Free tier sem cartão, latência baixa e tool-calling confiável. Temperatura em
-0.2 de propósito: o agente conversa, quem decide é o código — criatividade aqui
-só produziria número inventado.
+Free tier sem cartão, latência baixa e tool-calling confiável.
+
+A escolha do modelo foi corrigida durante a integração: `gemini-2.5-flash` não
+está mais disponível para novos usuários e responde 404 recomendando o 3.6. Os
+modelos `gemini-3.7-flash` e `gemini-flash-latest` responderam 503 por demanda
+alta no momento do teste, então o padrão é o **3.6**, que passou no teste de
+tool calling. Basta trocar `BANCO_AGIL_MODELO` no `.env` para usar outro.
+
+A família 3.x usa amostragem fixa e **ignora `temperature`**. Por isso o
+parâmetro só é enviado quando explicitamente configurado — o padrão é não
+mandar, evitando um aviso a cada chamada. Para quem apontar o projeto para um
+modelo 2.5, a temperatura baixa continua fazendo sentido: o agente conversa,
+quem decide é o código, e criatividade ali só produziria número inventado.
 
 ### AwesomeAPI para câmbio, não busca web
 

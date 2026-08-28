@@ -303,3 +303,57 @@ def test_detalhamento_soma_o_total_bruto():
         + r.componente_dividas
     )
     assert math.isclose(soma, r.total_bruto, rel_tol=1e-12)
+
+
+# --------------------------------------------------------------------------- #
+# 7. Bordas de tipo — entradas que não são texto nem número
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("entrada", [None, [1], {"n": 1}, (1,), object()])
+def test_dependentes_de_tipo_inesperado_e_rejeitado(entrada):
+    """int() falha para estes tipos; o erro precisa virar ScoreInputError."""
+    with pytest.raises(ScoreInputError, match="inválido"):
+        normalizar_dependentes(entrada)
+
+
+@pytest.mark.parametrize("campo", ["renda_mensal", "despesas_fixas"])
+def test_valor_monetario_booleano_e_rejeitado(campo):
+    """True vale 1 em Python; aceitar isso silenciosamente seria um bug caro."""
+    base = dict(
+        renda_mensal=6000,
+        despesas_fixas=2000,
+        tipo_emprego="formal",
+        num_dependentes=0,
+        tem_dividas="não",
+    )
+    base[campo] = True
+    with pytest.raises(ScoreInputError, match="booleano"):
+        calcular_score(**base)
+
+
+def test_resultado_serializa_com_o_detalhamento():
+    """O agente explica o resultado a partir deste dict, sem recalcular nada."""
+    dados = calcular_score(8000, 3000, "formal", 0, "não").as_dict()
+    assert dados["score"] == 580
+    assert set(dados) == {
+        "score",
+        "componente_renda",
+        "componente_emprego",
+        "componente_dependentes",
+        "componente_dividas",
+        "total_bruto",
+        "teto_renda_atingido",
+        "clamp_aplicado",
+    }
+    # A soma dos componentes precisa bater com o bruto informado.
+    soma = sum(
+        dados[c]
+        for c in (
+            "componente_renda",
+            "componente_emprego",
+            "componente_dependentes",
+            "componente_dividas",
+        )
+    )
+    assert soma == pytest.approx(dados["total_bruto"])

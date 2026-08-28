@@ -17,5 +17,6 @@ python-dotenv==1.2.3
 
 # Desenvolvimento e testes
 pytest==9.1.1
+pytest-cov==7.1.0
 ruff==0.16.5
 black==26.5.1

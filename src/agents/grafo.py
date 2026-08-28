@@ -94,14 +94,56 @@ def criar_llm(**kwargs: Any) -> BaseChatModel:
         )
 
     parametros: dict[str, Any] = {
-        "model": os.getenv("BANCO_AGIL_MODELO", "gemini-2.5-flash"),
-        # Temperatura baixa de propósito: o agente conversa, quem decide é o
-        # código. Criatividade aqui só produz número inventado.
-        "temperature": float(os.getenv("BANCO_AGIL_TEMPERATURA", "0.2")),
+        "model": os.getenv("BANCO_AGIL_MODELO", "gemini-3.6-flash"),
         "google_api_key": chave,
     }
+
+    # A família gemini-3.x usa amostragem fixa e ignora `temperature`, emitindo
+    # um aviso a cada chamada. Só enviamos o parâmetro quando explicitamente
+    # configurado — útil para quem apontar o projeto para um modelo 2.5, onde
+    # temperatura baixa importa: o agente conversa, quem decide é o código.
+    temperatura = os.getenv("BANCO_AGIL_TEMPERATURA", "").strip()
+    if temperatura:
+        parametros["temperature"] = float(temperatura)
+
     parametros.update(kwargs)
     return ChatGoogleGenerativeAI(**parametros)
+
+
+# --------------------------------------------------------------------------- #
+# Extração de texto
+# --------------------------------------------------------------------------- #
+
+
+def texto_da_mensagem(mensagem: AnyMessage) -> str:
+    """Extrai o texto legível de uma mensagem do modelo.
+
+    `content` nem sempre é `str`. Os modelos Gemini 3.x devolvem uma lista de
+    blocos — `[{"type": "text", "text": "...", "extras": {"signature": "..."}}]`
+    — e um `str()` ingênuo aqui despejaria o repr do dicionário inteiro, com a
+    assinatura criptográfica junto, na cara do cliente.
+    """
+    conteudo = mensagem.content
+
+    if isinstance(conteudo, str):
+        return conteudo.strip()
+
+    if isinstance(conteudo, list):
+        partes: list[str] = []
+        for bloco in conteudo:
+            if isinstance(bloco, str):
+                partes.append(bloco)
+            # Só blocos de texto interessam: `thinking`, `tool_use` e afins são
+            # internos e não devem aparecer na conversa.
+            elif (
+                isinstance(bloco, dict)
+                and bloco.get("type") in (None, "text")
+                and "text" in bloco
+            ):
+                partes.append(str(bloco["text"]))
+        return "\n".join(p for p in partes if p.strip()).strip()
+
+    return str(conteudo).strip() if conteudo else ""
 
 
 # --------------------------------------------------------------------------- #
@@ -332,8 +374,10 @@ class Atendimento:
     def ultima_resposta(self) -> str:
         """Texto da última fala do assistente, ignorando mensagens de tool."""
         for mensagem in reversed(self.estado["messages"]):
-            if isinstance(mensagem, AIMessage) and str(mensagem.content).strip():
-                return str(mensagem.content).strip()
+            if isinstance(mensagem, AIMessage):
+                texto = texto_da_mensagem(mensagem)
+                if texto:
+                    return texto
         return ""
 
     @property

@@ -128,9 +128,14 @@ atômica há risco real de linha duplicada ou arquivo truncado.
 
 ## 4. Esquemas de dados
 
-> ⚠️ Os esquemas de `clientes.csv` e `score_limite.csv` abaixo são a **proposta
-> de trabalho**. Confirmar contra os arquivos reais assim que disponíveis e
-> atualizar esta seção — ela é a fonte de verdade para o código.
+> ✅ **Confirmado em 2026-08-28.** O enunciado não forneceu os CSVs, então eles
+> foram gerados a partir destes esquemas e vivem em `data/seed/`. Os esquemas
+> abaixo e os arquivos concordam — esta seção continua sendo a fonte de verdade,
+> e quem mudar um dos dois precisa mudar o outro.
+>
+> Os dados semente têm oito clientes cobrindo todas as faixas de score, dois
+> deles com CPF iniciado em `0` de propósito, para que a regra inviolável nº 4
+> seja exercitada pelos testes de round-trip.
 
 **`data/clientes.csv`** (leitura e escrita — o score é atualizado)
 
