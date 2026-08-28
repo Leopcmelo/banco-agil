@@ -43,7 +43,15 @@ jobs:
       - name: pytest
         run: pytest -q --cov=src --cov-report=term-missing
 
+      # A lista de testes do núcleo é derivada, não escrita à mão: um módulo
+      # novo em src/core já quebrou a CI uma vez por ter sido adicionado sem
+      # entrar nesta lista. test_estrutura.py garante que o par módulo/teste
+      # exista; o glob garante que ele seja executado aqui.
+      # A lista vem por xargs em vez de word-splitting da shell: o
+      # comportamento de $(...) sem aspas difere entre bash e zsh, e validar
+      # local de um jeito e na CI de outro foi exatamente o que deixou esta
+      # verificação passar na minha máquina e quebrar no push.
       - name: Verificar cobertura mínima do núcleo
         run: |
-          pytest -q --cov=src/core --cov-fail-under=100 \
-            tests/test_score.py tests/test_limites.py tests/test_validadores.py
+          python scripts/testes_do_nucleo.py \
+            | xargs pytest -q --cov=src/core --cov-fail-under=100
