@@ -9,7 +9,7 @@ devolvem sempre `dict` (seção 5 do CLAUDE.md).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.core.limites import STATUS_PENDENTE, STATUS_VALIDOS
@@ -157,7 +157,7 @@ class Solicitacao:
 
         `agora` é injetável para que os testes não dependam do relógio.
         """
-        momento = agora or datetime.now(timezone.utc).astimezone()
+        momento = agora or datetime.now(UTC).astimezone()
         if momento.tzinfo is None:
             raise DadosInvalidosError(
                 "O timestamp da solicitação precisa ter timezone."

@@ -11,8 +11,9 @@ CLAUDE.md): o agente apenas comunica o resultado, nunca o calcula.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from src.core.score import SCORE_MAX, SCORE_MIN
 
@@ -122,7 +123,7 @@ def validar_tabela(faixas: Iterable[FaixaScore]) -> tuple[FaixaScore, ...]:
             f"mas termina em {ordenadas[-1].score_max}."
         )
 
-    for anterior, seguinte in zip(ordenadas, ordenadas[1:]):
+    for anterior, seguinte in zip(ordenadas, ordenadas[1:], strict=False):
         if seguinte.score_min <= anterior.score_max:
             raise TabelaLimitesError(
                 f"Faixas se sobrepõem: [{anterior.score_min}, {anterior.score_max}] "

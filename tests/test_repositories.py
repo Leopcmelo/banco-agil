@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import csv
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -230,7 +230,7 @@ def test_escritas_concorrentes_nao_perdem_linhas(repo):
                 limite_atual=8000,
                 novo_limite_solicitado=9000 + indice,
                 agora=datetime(2026, 8, 28, 10, indice % 60, indice % 60,
-                               tzinfo=timezone.utc),
+                               tzinfo=UTC),
             )
         )
 

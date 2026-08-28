@@ -50,10 +50,10 @@ CASOS_REFERENCIA = [
     [c[1:] for c in CASOS_REFERENCIA],
     ids=[c[0] for c in CASOS_REFERENCIA],
 )
-def test_casos_de_referencia(
-    renda, despesas, emprego, dependentes, dividas, esperado
-):
-    assert calcular_score(renda, despesas, emprego, dependentes, dividas).score == esperado
+def test_casos_de_referencia(renda, despesas, emprego, dependentes, dividas, esperado):
+    assert (
+        calcular_score(renda, despesas, emprego, dependentes, dividas).score == esperado
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -66,9 +66,7 @@ def test_casos_de_referencia(
 @pytest.mark.parametrize("emprego", ["formal", "autônomo", "desempregado"])
 @pytest.mark.parametrize("dependentes", [0, 1, 2, 3, 12])
 @pytest.mark.parametrize("dividas", ["sim", "não"])
-def test_score_sempre_dentro_da_faixa(
-    renda, despesas, emprego, dependentes, dividas
-):
+def test_score_sempre_dentro_da_faixa(renda, despesas, emprego, dependentes, dividas):
     score = calcular_score(renda, despesas, emprego, dependentes, dividas).score
     assert SCORE_MIN <= score <= SCORE_MAX
     assert isinstance(score, int)
@@ -193,7 +191,20 @@ def test_emprego_acentuado_e_sem_acento_geram_o_mesmo_score():
     assert _s(emprego="autônomo") == _s(emprego="autonomo") == _s(emprego="AUTÔNOMO")
 
 
-@pytest.mark.parametrize("entrada,esperado", [(0, 0), (1, 1), (2, 2), (3, "3+"), (4, "3+"), (99, "3+"), ("3+", "3+"), ("5", "3+"), ("2", 2)])
+@pytest.mark.parametrize(
+    "entrada,esperado",
+    [
+        (0, 0),
+        (1, 1),
+        (2, 2),
+        (3, "3+"),
+        (4, "3+"),
+        (99, "3+"),
+        ("3+", "3+"),
+        ("5", "3+"),
+        ("2", 2),
+    ],
+)
 def test_normalizacao_de_dependentes(entrada, esperado):
     assert normalizar_dependentes(entrada) == esperado
 
@@ -205,8 +216,18 @@ def test_tres_ou_mais_dependentes_tem_o_mesmo_peso():
 @pytest.mark.parametrize(
     "entrada,esperado",
     [
-        ("sim", True), ("Sim", True), ("SIM", True), ("s", True), (True, True), (1, True),
-        ("não", False), ("nao", False), ("NÃO", False), ("n", False), (False, False), (0, False),
+        ("sim", True),
+        ("Sim", True),
+        ("SIM", True),
+        ("s", True),
+        (True, True),
+        (1, True),
+        ("não", False),
+        ("nao", False),
+        ("NÃO", False),
+        ("n", False),
+        (False, False),
+        (0, False),
     ],
 )
 def test_normalizacao_de_dividas(entrada, esperado):

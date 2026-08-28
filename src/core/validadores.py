@@ -64,7 +64,7 @@ def normalizar_cpf(valor: Any) -> str:
     """
     if valor is None:
         raise CPFInvalidoError("CPF não informado.")
-    if isinstance(valor, bool) or isinstance(valor, float):
+    if isinstance(valor, bool | float):
         raise CPFInvalidoError(f"CPF deve ser texto ou inteiro: {valor!r}.")
 
     digitos = _SO_DIGITOS.sub("", str(valor))
@@ -242,7 +242,7 @@ def normalizar_valor_monetario(valor: Any, *, nome: str = "Valor") -> float:
     if isinstance(valor, bool):
         raise ValorMonetarioInvalidoError(f"{nome} não pode ser booleano.")
 
-    if isinstance(valor, (int, float)):
+    if isinstance(valor, int | float):
         numero = float(valor)
     else:
         if valor is None:

@@ -18,7 +18,7 @@ import logging
 import os
 import unicodedata
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import requests
@@ -200,7 +200,9 @@ def _consultar_awesome(
     try:
         valor = float(bloco["bid"])
     except (KeyError, TypeError, ValueError) as exc:
-        raise CambioError(f"Cotação ausente ou malformada na AwesomeAPI: {exc}")
+        raise CambioError(
+            f"Cotação ausente ou malformada na AwesomeAPI: {exc}"
+        ) from exc
 
     def _opcional(campo: str) -> float | None:
         try:
@@ -215,7 +217,7 @@ def _consultar_awesome(
         nome=str(bloco.get("name") or NOMES_AMIGAVEIS.get(origem, origem)),
         fonte="AwesomeAPI",
         atualizado_em=str(
-            bloco.get("create_date") or datetime.now(timezone.utc).isoformat()
+            bloco.get("create_date") or datetime.now(UTC).isoformat()
         ),
         variacao_pct=_opcional("pctChange"),
         valor_venda=_opcional("ask"),
@@ -242,7 +244,9 @@ def _consultar_fallback(
     try:
         valor = float(taxas[destino])
     except (TypeError, ValueError) as exc:
-        raise CambioError(f"Taxa malformada na fonte de fallback: {exc}")
+        raise CambioError(
+            f"Taxa malformada na fonte de fallback: {exc}"
+        ) from exc
 
     return Cotacao(
         moeda_origem=origem,
@@ -252,7 +256,7 @@ def _consultar_fallback(
         fonte="open.er-api.com",
         atualizado_em=str(
             dados.get("time_last_update_utc")
-            or datetime.now(timezone.utc).isoformat()
+            or datetime.now(UTC).isoformat()
         ),
     )
 

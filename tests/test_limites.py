@@ -6,6 +6,8 @@ quebrar, ou o ADR mudou ou existe um bug. Nunca ajuste o número esperado
 apenas para o teste passar (seção 7 do CLAUDE.md).
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from src.core.limites import (
@@ -222,5 +224,5 @@ def test_valores_monetarios_invalidos_sao_rejeitados(kwargs):
 def test_decisao_e_imutavel():
     d = avaliar_solicitacao(720, 8000, 12000, TABELA)
     assert isinstance(d, DecisaoLimite)
-    with pytest.raises(Exception):
+    with pytest.raises(FrozenInstanceError):
         d.status = STATUS_REJEITADO  # type: ignore[misc]

@@ -24,8 +24,9 @@ import os
 import shutil
 import tempfile
 import threading
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 

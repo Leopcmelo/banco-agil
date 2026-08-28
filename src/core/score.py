@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import math
 import unicodedata
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 # --------------------------------------------------------------------------- #
@@ -163,7 +163,7 @@ def normalizar_dividas(valor: Any) -> bool:
     """Aceita bool, 'sim'/'não'/'nao'/'S'/'N'/'true'/'false'/1/0."""
     if isinstance(valor, bool):
         return valor
-    if isinstance(valor, (int, float)) and valor in (0, 1):
+    if isinstance(valor, int | float) and valor in (0, 1):
         return bool(valor)
     texto = _normalizar_texto(valor)
     if texto in _VERDADEIRO:
