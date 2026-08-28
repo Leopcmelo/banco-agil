@@ -733,3 +733,22 @@ def test_prompt_de_cambio_distingue_cotacao_de_conversao():
     assert "converter_valor" in texto
     assert "consultar_cotacao" in texto
     assert "Nunca multiplique você mesmo" in texto
+
+
+def test_prompt_de_credito_cobre_a_conversao_de_moeda(contexto):
+    """Regressão: o agente respondeu "preciso direcionar isso" e pediu de novo
+    um valor que já tinha — duas quebras do ADR-004 numa frase só."""
+    texto = (DIRETORIO_PROMPTS / "credito.md").read_text(encoding="utf-8")
+    assert "Converter o limite" in texto
+    assert "Não pergunte qual" in texto
+
+
+def test_as_frases_proibidas_do_prompt_sao_marcas_reais():
+    """O prompt lista frases proibidas; o detector precisa reconhecê-las.
+
+    Sem isso, o exemplo negativo do prompt e a varredura dos testes poderiam
+    divergir em silêncio.
+    """
+    texto = (DIRETORIO_PROMPTS / "credito.md").read_text(encoding="utf-8")
+    assert "preciso direcionar isso" in texto
+    assert marcas_de_transferencia("Para cotação eu preciso direcionar isso.")

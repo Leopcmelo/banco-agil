@@ -347,8 +347,21 @@ tools não sabem qual está atrás. Trocar de provedor é uma linha no `.env`.
 
 | Provedor | Padrão | Observação |
 |---|---|---|
-| `anthropic` | `claude-opus-5` | Raciocínio ligado por padrão; recusa `temperature` com 400 |
+| `anthropic` | `claude-sonnet-5` | Recusa `temperature` com 400 |
 | `google` | `gemini-3.6-flash` | Free tier sem cartão; ignora `temperature` |
+
+**Por que Sonnet 5 e não Opus 5.** Os três modelos foram testados no mesmo
+cenário — autenticar, consultar o limite e convertê-lo em dólar:
+
+| Modelo | Resultado |
+|---|---|
+| `claude-sonnet-5` | Encadeou triagem → crédito → câmbio corretamente |
+| `claude-opus-5` | Também correto, porém mais caro e mais lento |
+| `claude-haiku-4-5` | **Hesitou no roteamento** — respondeu "você quer consultar ou aumentar?" em vez de chamar a tool de direcionamento |
+
+O Haiku é o mais barato da lista, mas a economia sai cara: sem o
+direcionamento, o cliente cai num pingue-pongue de perguntas. Trocar o modelo
+é uma linha em `BANCO_AGIL_MODELO_ANTHROPIC`.
 
 A escolha do modelo Gemini foi corrigida durante a integração:
 `gemini-2.5-flash` não está mais disponível para novos usuários e responde 404

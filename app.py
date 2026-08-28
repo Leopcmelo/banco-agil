@@ -36,20 +36,28 @@ DIRETORIO_DADOS = Path(os.getenv("BANCO_AGIL_DATA_DIR", RAIZ / "data"))
 st.set_page_config(page_title="Banco Ágil", page_icon="🏦", layout="centered")
 
 
-def texto_seguro(valor: str) -> str:
-    """Neutraliza a sintaxe de Markdown antes de exibir texto do atendimento.
+def texto_de_conversa(valor: str) -> str:
+    """Prepara uma fala do atendimento para exibição.
 
-    Dois casos reais apareceram no primeiro teste em navegador:
+    Escapa APENAS `$`. O Streamlit lê um par de `$` como delimitador de LaTeX,
+    e como todo valor em reais tem `R$`, qualquer frase com dois valores saía
+    como fórmula — foi o que aconteceu com "R$ 3.000,00 ... R$ 500,00".
 
-    - `R$ 3.000,00 ... R$ 500,00` virava bloco de código, porque o Streamlit lê
-      um par de `$` como delimitador de LaTeX — e todo valor em reais tem `R$`.
-    - A máscara de CPF `***.***.877-39` aparecia como `..877-39`, porque `***`
-      é marcador de ênfase.
-
-    O texto vem do modelo e das tools, então escapar na exibição é mais seguro
-    do que confiar que nenhuma mensagem futura conterá esses caracteres.
+    O resto do Markdown fica valendo de propósito: o modelo usa negrito para
+    destacar valores, e escapar tudo transformava `**R$ 8.000,00**` nos
+    asteriscos literais na tela.
     """
-    for caractere in ("\\", "`", "*", "_", "$", "~"):
+    return valor.replace("$", "\\$")
+
+
+def texto_de_dado(valor: str) -> str:
+    """Prepara um DADO para exibição, sem interpretar nada.
+
+    Diferente de uma fala, um dado nunca quer formatação: a máscara de CPF
+    `***.***.877-39` aparecia como `..877-39` porque `***` é marcador de
+    ênfase. Aqui todo caractere de Markdown é neutralizado.
+    """
+    for caractere in ("\\", "`", "*", "_", "$", "~", "[", "]"):
         valor = valor.replace(caractere, "\\" + caractere)
     return valor
 
@@ -96,7 +104,7 @@ with st.sidebar:
     resumo = contexto.sessao.resumo_seguro()
     if resumo["autenticado"]:
         st.success(f"Autenticado: {resumo['nome_cliente']}")
-        st.caption(f"CPF {texto_seguro(resumo['cpf'])}")
+        st.caption(f"CPF {texto_de_dado(resumo['cpf'])}")
     elif resumo["bloqueado"]:
         st.error("Bloqueado por excesso de tentativas")
     else:
@@ -215,7 +223,7 @@ if st.session_state.erro_inicializacao:
 
 for autor, texto in st.session_state.historico:
     with st.chat_message(autor):
-        st.markdown(texto_seguro(texto))
+        st.markdown(texto_de_conversa(texto))
 
 # A primeira fala é do atendente, como pede o fluxo do enunciado.
 if not st.session_state.historico:
@@ -231,7 +239,7 @@ if not st.session_state.historico:
                 "Tente recarregar a página."
             )
             st.error(str(exc))
-        marcador.markdown(texto_seguro(saudacao))
+        marcador.markdown(texto_de_conversa(saudacao))
     st.session_state.historico.append(("assistant", saudacao))
 
 encerrado = contexto.sessao.encerrado or contexto.sessao.bloqueado
@@ -243,7 +251,7 @@ else:
     if pergunta:
         st.session_state.historico.append(("user", pergunta))
         with st.chat_message("user"):
-            st.markdown(texto_seguro(pergunta))
+            st.markdown(texto_de_conversa(pergunta))
 
         with st.chat_message("assistant"):
             marcador = st.empty()
@@ -260,7 +268,7 @@ else:
                 )
                 st.caption(f"Detalhe técnico: {exc}")
             marcador.markdown(
-                texto_seguro(resposta) if resposta else "_(atendimento encerrado)_"
+                texto_de_conversa(resposta) if resposta else "_(atendimento encerrado)_"
             )
 
         st.session_state.historico.append(("assistant", resposta))

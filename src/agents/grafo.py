@@ -79,7 +79,11 @@ class EstadoAtendimento(TypedDict):
 
 
 PROVEDOR_PADRAO = "anthropic"
-MODELO_PADRAO_ANTHROPIC = "claude-opus-5"
+# Sonnet 5 e não Opus 5: nos testes o Sonnet acertou o encadeamento
+# triagem -> crédito -> câmbio de ponta a ponta por bem menos. O Haiku 4.5 é
+# mais barato ainda, mas hesita no roteamento em vez de chamar a tool de
+# direcionamento — economia que sai cara em qualidade.
+MODELO_PADRAO_ANTHROPIC = "claude-sonnet-5"
 MODELO_PADRAO_GOOGLE = "gemini-3.6-flash"
 
 # Teto de tokens por resposta. Precisa ser folgado nos modelos com raciocínio

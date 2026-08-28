@@ -1,48 +1,72 @@
 """
 Testes da camada de apresentação.
 
-Só o que é testável sem subir o Streamlit: o escape de Markdown, que existe
-por causa de dois defeitos observados no navegador.
+Só o que é testável sem subir o Streamlit: o preparo de texto para exibição,
+que existe por causa de defeitos observados no navegador.
+
+A distinção entre os dois casos é o ponto: uma FALA pode ter formatação
+intencional do modelo, um DADO nunca quer nenhuma.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from app import texto_seguro
+from app import texto_de_conversa, texto_de_dado
+
+# --------------------------------------------------------------------------- #
+# 1. Falas — escapar só o que quebra
+# --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    "entrada,nao_pode_conter",
-    [
-        # O par de $ vira delimitador de LaTeX no Streamlit, e todo valor em
-        # reais tem R$ — duas ocorrências bastam para mutilar a frase inteira.
-        ("Aprovado R$ 3.000,00, antes era R$ 500,00", "$ 3.000,00, antes era R$"),
-        # *** é marcador de ênfase: a máscara sumia e virava "..877-39".
-        ("CPF ***.***.877-39", "***"),
-    ],
-)
-def test_sintaxe_de_markdown_e_neutralizada(entrada, nao_pode_conter):
-    assert nao_pode_conter not in texto_seguro(entrada)
+def test_valores_em_reais_nao_viram_formula():
+    """Um par de $ era lido como LaTeX, e todo valor em reais tem R$."""
+    saida = texto_de_conversa("Aprovado R$ 3.000,00, antes era R$ 500,00")
+    assert saida.count("\\$") == 2
+    assert "3.000,00" in saida and "500,00" in saida
 
 
-@pytest.mark.parametrize("caractere", ["*", "_", "`", "$", "~", "\\"])
-def test_todo_caractere_perigoso_e_escapado(caractere):
-    assert texto_seguro(f"a{caractere}b") == f"a\\{caractere}b"
+def test_negrito_do_modelo_continua_funcionando():
+    """Escapar tudo mostrava `**R$ 8.000,00**` com os asteriscos na tela."""
+    saida = texto_de_conversa("Seu limite é **R$ 8.000,00**")
+    assert "**" in saida
+    assert "\\*" not in saida
 
 
-def test_o_texto_visivel_e_preservado():
-    """Escapar não pode apagar conteúdo — só neutralizar a formatação."""
-    original = "Seu limite é de R$ 8.000,00 e o CPF é ***.***.793-26."
-    escapado = texto_seguro(original)
-    for trecho in (
-        "Seu limite é de R",
-        "8.000,00",
-        "877-39".replace("877-39", "793-26"),
-    ):
-        assert trecho in escapado
+def test_fala_sem_cifrao_passa_intacta():
+    fala = "Tudo certo, Giovana. Como posso ajudar voce hoje?"
+    assert texto_de_conversa(fala) == fala
 
 
-def test_texto_sem_marcacao_passa_praticamente_intacto():
-    simples = "Tudo certo, Giovana. Como posso ajudar voce hoje?"
-    assert texto_seguro(simples) == simples
+# --------------------------------------------------------------------------- #
+# 2. Dados — neutralizar tudo
+# --------------------------------------------------------------------------- #
+
+
+def test_mascara_de_cpf_sobrevive():
+    """`***.***.877-39` aparecia como `..877-39`: *** é marcador de ênfase."""
+    saida = texto_de_dado("***.***.877-39")
+    assert "\\*\\*\\*" in saida
+    assert "877-39" in saida
+
+
+@pytest.mark.parametrize("caractere", ["*", "_", "`", "$", "~", "\\", "[", "]"])
+def test_todo_caractere_de_markdown_e_escapado_em_dado(caractere):
+    assert texto_de_dado(f"a{caractere}b") == f"a\\{caractere}b"
+
+
+def test_dado_sem_marcacao_passa_intacto():
+    assert texto_de_dado("Ana Beatriz Cardoso") == "Ana Beatriz Cardoso"
+
+
+# --------------------------------------------------------------------------- #
+# 3. Nenhum dos dois pode apagar conteúdo
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("preparo", [texto_de_conversa, texto_de_dado])
+def test_o_conteudo_visivel_e_preservado(preparo):
+    original = "Limite de R$ 8.000,00 para o CPF 793-26."
+    saida = preparo(original)
+    for trecho in ("8.000,00", "793-26", "Limite de R"):
+        assert trecho in saida
