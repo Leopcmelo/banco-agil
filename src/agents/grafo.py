@@ -78,12 +78,61 @@ class EstadoAtendimento(TypedDict):
 # --------------------------------------------------------------------------- #
 
 
-def criar_llm(**kwargs: Any) -> BaseChatModel:
-    """Instancia o Gemini a partir do `.env`.
+PROVEDOR_PADRAO = "anthropic"
+MODELO_PADRAO_ANTHROPIC = "claude-opus-5"
+MODELO_PADRAO_GOOGLE = "gemini-3.6-flash"
 
-    Importado aqui dentro para que o pacote de agentes possa ser carregado —
-    e testado — sem nenhuma chave configurada.
+# Teto de tokens por resposta. Precisa ser folgado nos modelos com raciocínio
+# ligado por padrão (Claude Opus 5), onde `max_tokens` limita o raciocínio E o
+# texto juntos — um teto apertado trunca a resposta no meio.
+MAX_TOKENS_PADRAO = 8192
+
+
+def _temperatura_configurada() -> float | None:
+    """Temperatura só quando explicitamente pedida no `.env`.
+
+    Os dois provedores tratam amostragem de forma diferente e ambos reagem mal
+    ao valor default: a família gemini-3.x ignora `temperature` e emite aviso a
+    cada chamada; o Claude Opus 5 recusa a requisição com 400. Mandar só quando
+    o operador pediu resolve os dois casos.
     """
+    valor = os.getenv("BANCO_AGIL_TEMPERATURA", "").strip()
+    return float(valor) if valor else None
+
+
+def _criar_llm_anthropic(**kwargs: Any) -> BaseChatModel:
+    from langchain_anthropic import ChatAnthropic
+
+    chave = os.getenv("ANTHROPIC_API_KEY")
+    if not chave:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY não configurada. Copie .env.example para .env e "
+            "preencha a chave obtida em "
+            "https://console.anthropic.com/settings/keys."
+        )
+
+    parametros: dict[str, Any] = {
+        "model": os.getenv("BANCO_AGIL_MODELO_ANTHROPIC", MODELO_PADRAO_ANTHROPIC),
+        "api_key": chave,
+        "max_tokens": int(os.getenv("BANCO_AGIL_MAX_TOKENS", MAX_TOKENS_PADRAO)),
+    }
+
+    # Chaves vinculadas a identidade exigem o workspace em toda requisição —
+    # sem o header, a API recusa com 400 antes mesmo de olhar o corpo. Chaves
+    # comuns de workspace não precisam, então o campo é opcional.
+    workspace = os.getenv("ANTHROPIC_WORKSPACE_ID", "").strip()
+    if workspace:
+        parametros["default_headers"] = {"anthropic-workspace-id": workspace}
+
+    temperatura = _temperatura_configurada()
+    if temperatura is not None:
+        parametros["temperature"] = temperatura
+
+    parametros.update(kwargs)
+    return ChatAnthropic(**parametros)
+
+
+def _criar_llm_google(**kwargs: Any) -> BaseChatModel:
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     chave = os.getenv("GOOGLE_API_KEY")
@@ -94,20 +143,40 @@ def criar_llm(**kwargs: Any) -> BaseChatModel:
         )
 
     parametros: dict[str, Any] = {
-        "model": os.getenv("BANCO_AGIL_MODELO", "gemini-3.6-flash"),
+        "model": os.getenv("BANCO_AGIL_MODELO", MODELO_PADRAO_GOOGLE),
         "google_api_key": chave,
     }
 
-    # A família gemini-3.x usa amostragem fixa e ignora `temperature`, emitindo
-    # um aviso a cada chamada. Só enviamos o parâmetro quando explicitamente
-    # configurado — útil para quem apontar o projeto para um modelo 2.5, onde
-    # temperatura baixa importa: o agente conversa, quem decide é o código.
-    temperatura = os.getenv("BANCO_AGIL_TEMPERATURA", "").strip()
-    if temperatura:
-        parametros["temperature"] = float(temperatura)
+    temperatura = _temperatura_configurada()
+    if temperatura is not None:
+        parametros["temperature"] = temperatura
 
     parametros.update(kwargs)
     return ChatGoogleGenerativeAI(**parametros)
+
+
+PROVEDORES = {
+    "anthropic": _criar_llm_anthropic,
+    "google": _criar_llm_google,
+}
+
+
+def criar_llm(**kwargs: Any) -> BaseChatModel:
+    """Instancia o modelo do provedor configurado em `BANCO_AGIL_PROVEDOR`.
+
+    Dois provedores porque a escolha é de operação, não de arquitetura: o resto
+    do sistema fala com `BaseChatModel` e não sabe qual está atrás. Os imports
+    ficam dentro de cada função para que o pacote de agentes possa ser carregado
+    — e testado — sem nenhuma chave e sem os dois SDKs instalados.
+    """
+    nome = os.getenv("BANCO_AGIL_PROVEDOR", PROVEDOR_PADRAO).strip().lower()
+    construtor = PROVEDORES.get(nome)
+    if construtor is None:
+        raise RuntimeError(
+            f"Provedor de LLM desconhecido: {nome!r}. "
+            f"Use um de: {', '.join(sorted(PROVEDORES))}."
+        )
+    return construtor(**kwargs)
 
 
 # --------------------------------------------------------------------------- #

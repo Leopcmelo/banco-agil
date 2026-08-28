@@ -6,6 +6,7 @@ langgraph==1.2.11
 langgraph-prebuilt==1.1.0
 langchain-core==1.6.1
 langchain-google-genai==4.3.7
+langchain-anthropic==1.7.0
 
 # Dados e UI
 pandas==3.0.5

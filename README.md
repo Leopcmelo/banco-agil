@@ -294,21 +294,32 @@ CrewAI foi descartado por ser orientado a delegação verbosa entre papéis, que
 briga com o requisito de transição imperceptível. Google ADK tem handoff nativo,
 mas menos controlável e mais difícil de testar sem chave.
 
-### Gemini 3.6 Flash
+### Dois provedores: Anthropic e Google
 
-Free tier sem cartão, latência baixa e tool-calling confiável.
+A escolha de modelo é de **operação, não de arquitetura**. `criar_llm()` lê
+`BANCO_AGIL_PROVEDOR` e devolve um `BaseChatModel`; o grafo, os agentes e as
+tools não sabem qual está atrás. Trocar de provedor é uma linha no `.env`.
 
-A escolha do modelo foi corrigida durante a integração: `gemini-2.5-flash` não
-está mais disponível para novos usuários e responde 404 recomendando o 3.6. Os
-modelos `gemini-3.7-flash` e `gemini-flash-latest` responderam 503 por demanda
-alta no momento do teste, então o padrão é o **3.6**, que passou no teste de
-tool calling. Basta trocar `BANCO_AGIL_MODELO` no `.env` para usar outro.
+| Provedor | Padrão | Observação |
+|---|---|---|
+| `anthropic` | `claude-opus-5` | Raciocínio ligado por padrão; recusa `temperature` com 400 |
+| `google` | `gemini-3.6-flash` | Free tier sem cartão; ignora `temperature` |
 
-A família 3.x usa amostragem fixa e **ignora `temperature`**. Por isso o
-parâmetro só é enviado quando explicitamente configurado — o padrão é não
-mandar, evitando um aviso a cada chamada. Para quem apontar o projeto para um
-modelo 2.5, a temperatura baixa continua fazendo sentido: o agente conversa,
+A escolha do modelo Gemini foi corrigida durante a integração:
+`gemini-2.5-flash` não está mais disponível para novos usuários e responde 404
+recomendando o 3.6. Os modelos `gemini-3.7-flash` e `gemini-flash-latest`
+responderam 503 por demanda alta no momento do teste.
+
+**Temperatura não é enviada por padrão**, e isso é deliberado: a família
+gemini-3.x ignora o parâmetro e emite aviso a cada chamada, enquanto o Claude
+Opus 5 recusa a requisição inteira com 400. Mandar só quando o operador pediu
+resolve os dois casos. Para quem apontar o projeto para um modelo que aceite
+amostragem, a temperatura baixa continua fazendo sentido: o agente conversa,
 quem decide é o código, e criatividade ali só produziria número inventado.
+
+**`max_tokens` é folgado (8192) de propósito.** Nos modelos com raciocínio
+ligado por padrão, esse teto limita o raciocínio *e* o texto juntos — um valor
+apertado trunca a resposta no meio.
 
 ### AwesomeAPI para câmbio, não busca web
 
@@ -360,8 +371,13 @@ vive no CSV, não no log.
 ### Pré-requisitos
 
 - Python 3.11 ou superior
-- Uma chave da API do Gemini — gratuita em
-  [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- Uma chave de API de um dos dois provedores:
+  - **Anthropic** — [console.anthropic.com](https://console.anthropic.com/settings/keys).
+    Gere uma chave **de workspace**: uma chave vinculada à identidade exige o
+    header `anthropic-workspace-id` em toda chamada (o projeto suporta isso via
+    `ANTHROPIC_WORKSPACE_ID`, mas a chave de workspace é mais simples).
+  - **Google Gemini** — gratuita em
+    [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
 ### Instalação
 
@@ -381,8 +397,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Abra o `.env` e preencha a `GOOGLE_API_KEY`. Os demais valores têm padrão
-razoável e podem ficar como estão.
+Abra o `.env`, escolha `BANCO_AGIL_PROVEDOR` e preencha a chave correspondente
+(`ANTHROPIC_API_KEY` ou `GOOGLE_API_KEY`). Os demais valores têm padrão
+razoável — em especial, deixe `BANCO_AGIL_TEMPERATURA` **vazio**.
 
 ### Executando
 

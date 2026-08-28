@@ -23,8 +23,11 @@ from src.agents import cambio, credito, entrevista, triagem
 from src.agents.base import DIRETORIO_PROMPTS, carregar_prompt
 from src.agents.grafo import (
     AGENTES,
+    PROVEDORES,
     Atendimento,
+    _temperatura_configurada,
     construir_grafo,
+    criar_llm,
     texto_da_mensagem,
 )
 from src.data.repositories import RepositorioBancoAgil
@@ -588,3 +591,49 @@ def test_ultima_resposta_usa_o_extrator(contexto):
         )
     ]
     assert at.ultima_resposta == "Seu limite atual é de R$ 8.000,00."
+
+
+# --------------------------------------------------------------------------- #
+# 8. Seleção de provedor de LLM
+# --------------------------------------------------------------------------- #
+
+
+def test_provedor_desconhecido_falha_com_mensagem_clara(monkeypatch):
+    monkeypatch.setenv("BANCO_AGIL_PROVEDOR", "openai")
+    with pytest.raises(RuntimeError, match="Provedor de LLM desconhecido"):
+        criar_llm()
+
+
+def test_anthropic_sem_chave_orienta_o_operador(monkeypatch):
+    monkeypatch.setenv("BANCO_AGIL_PROVEDOR", "anthropic")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        criar_llm()
+
+
+def test_google_sem_chave_orienta_o_operador(monkeypatch):
+    monkeypatch.setenv("BANCO_AGIL_PROVEDOR", "google")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GOOGLE_API_KEY"):
+        criar_llm()
+
+
+def test_nome_do_provedor_tolera_caixa_e_espacos(monkeypatch):
+    monkeypatch.setenv("BANCO_AGIL_PROVEDOR", "  Anthropic  ")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # Chega até a checagem de chave, ou seja, o nome foi reconhecido.
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        criar_llm()
+
+
+def test_os_dois_provedores_estao_registrados():
+    assert set(PROVEDORES) == {"anthropic", "google"}
+
+
+def test_temperatura_vazia_nao_e_enviada(monkeypatch):
+    """gemini-3.x ignora e avisa; Claude Opus 5 recusa com 400. O default é
+    não mandar."""
+    monkeypatch.setenv("BANCO_AGIL_TEMPERATURA", "")
+    assert _temperatura_configurada() is None
+    monkeypatch.setenv("BANCO_AGIL_TEMPERATURA", "0.2")
+    assert _temperatura_configurada() == 0.2
