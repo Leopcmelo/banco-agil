@@ -20,11 +20,13 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from src.agents.grafo import Atendimento, criar_llm
+from src.core.conversao import formatar_valor_br
 from src.core.validadores import formatar_cpf
 from src.data.repositories import RepositorioBancoAgil, RepositorioError
 from src.logging_config import configurar_logging
 from src.session import SessionState
 from src.tools.base import ContextoAtendimento
+from src.tools.entrevista import PERGUNTAS
 
 load_dotenv()
 configurar_logging()
@@ -120,7 +122,12 @@ with st.sidebar:
         v is not None for v in contexto.sessao.entrevista.as_dict().values()
     )
     if entrevista_iniciada and not resumo["entrevista_completa"]:
-        st.caption(f"Entrevista — falta: {', '.join(resumo['entrevista_faltando'])}")
+        # Rótulos humanos, não os nomes de campo do Python: a sidebar mostrava
+        # "despesas_fixas, num_dependentes, tem_dividas".
+        faltando = ", ".join(
+            PERGUNTAS[campo] for campo in resumo["entrevista_faltando"]
+        )
+        st.caption(f"Entrevista — falta: {texto_de_dado(faltando)}")
 
     st.divider()
 
@@ -144,24 +151,18 @@ with st.sidebar:
     try:
         clientes = contexto.repositorio.listar_clientes()
         with st.expander(f"Clientes ({len(clientes)})"):
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "CPF": formatar_cpf(c.cpf),
-                            "Nome": c.nome,
-                            "Nascimento": c.data_nascimento,
-                            "Limite": f"R$ {c.limite_atual:,.2f}",
-                            "Score": c.score,
-                        }
-                        for c in clientes
-                    ]
-                ),
-                hide_index=True,
-                width="stretch",
-            )
+            # Linhas em vez de tabela: na largura da barra lateral, uma tabela
+            # de cinco colunas cortava justamente a data de nascimento — que é
+            # metade da credencial de teste. Cada cliente cabe em duas linhas.
+            for c in clientes:
+                nascimento = "/".join(reversed(c.data_nascimento.split("-")))
+                st.markdown(
+                    f"**{texto_de_dado(formatar_cpf(c.cpf))}** · {nascimento}  \n"
+                    f"{texto_de_dado(c.primeiro_nome)} · "
+                    f"score {c.score} · R$ {formatar_valor_br(c.limite_atual)}"
+                )
             st.caption(
-                "Base de testes: use qualquer CPF e data desta tabela para "
+                "Base de testes: use o CPF e a data de qualquer cliente para "
                 "autenticar."
             )
 
@@ -172,10 +173,16 @@ with st.sidebar:
                     pd.DataFrame(
                         [
                             {
-                                "CPF": formatar_cpf(s.cpf_cliente),
-                                "Quando": s.data_hora_solicitacao[:19],
-                                "De": f"R$ {s.limite_atual:,.2f}",
-                                "Para": f"R$ {s.novo_limite_solicitado:,.2f}",
+                                # Três colunas curtas: na largura da barra
+                                # lateral, Status — o desfecho que a auditoria
+                                # precisa ver — ficava fora da tela. O CPF saiu
+                                # porque é redundante (o painel de sessão acima
+                                # já diz quem está autenticado) e era o que
+                                # empurrava o desfecho para fora.
+                                "Hora": s.data_hora_solicitacao[11:19],
+                                "Pedido": formatar_valor_br(
+                                    s.novo_limite_solicitado, casas=0
+                                ),
                                 "Status": s.status_pedido,
                             }
                             for s in reversed(solicitacoes)
@@ -183,6 +190,10 @@ with st.sidebar:
                     ),
                     hide_index=True,
                     width="stretch",
+                )
+                st.caption(
+                    "Pedidos de todos os clientes, do mais recente ao mais "
+                    "antigo. O CPF fica no painel de sessão, acima."
                 )
             else:
                 st.caption("Nenhuma solicitação registrada ainda.")
@@ -194,7 +205,7 @@ with st.sidebar:
                     [
                         {
                             "Score": f"{f.score_min} – {f.score_max}",
-                            "Limite máximo": f"R$ {f.limite_maximo:,.2f}",
+                            "Limite máximo": f"R$ {formatar_valor_br(f.limite_maximo)}",
                         }
                         for f in faixas
                     ]
@@ -245,6 +256,10 @@ if not st.session_state.historico:
 encerrado = contexto.sessao.encerrado or contexto.sessao.bloqueado
 
 if encerrado:
+    # Campo DESABILITADO, não removido. Removê-lo tirava a âncora do rodapé e a
+    # página saltava para o topo — o cliente se despedia e via o começo da
+    # conversa, sem a despedida nem este aviso.
+    st.chat_input("Atendimento encerrado", disabled=True)
     st.info("Atendimento encerrado. Use **Nova conversa** para começar de novo.")
 else:
     pergunta = st.chat_input("Digite sua mensagem...")

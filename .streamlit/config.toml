@@ -1,0 +1,9 @@
+# Tema explícito. O primaryColor padrão do Streamlit é um vermelho-coral, e ele
+# pinta a borda de foco do campo de mensagem — num contexto bancário, um campo
+# permanentemente vermelho lê como erro de validação. Trocado por um azul
+# sóbrio, que é o que o cliente espera num banco.
+[theme]
+primaryColor = "#1f5f8b"
+
+[server]
+headless = true
