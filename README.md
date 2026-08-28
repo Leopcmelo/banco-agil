@@ -276,7 +276,32 @@ A conversão fica com o Câmbio, não com o Crédito: ela recebe um número que 
 está na conversa e nunca consulta a conta, então não viola o escopo de nenhum
 agente. Há teste garantindo que só o Câmbio a alcança.
 
-### 5. Provar que a transferência é imperceptível
+### 5. A trilha de auditoria não registra a base da decisão
+
+Encontrado na auditoria bancária, e é uma limitação do esquema, não um bug.
+
+Um fluxo de rejeição seguida de entrevista e novo pedido grava isto:
+
+```
+97552487739,...T15:47:18.542908-03:00,300.00,3000.00,rejeitado
+97552487739,...T15:47:18.555949-03:00,300.00,3000.00,aprovado
+```
+
+As duas linhas são idênticas em CPF, limite atual e valor pedido. Só o
+carimbo de tempo e o desfecho mudam. **A partir do CSV sozinho, ninguém
+consegue explicar por que o mesmo pedido foi recusado e depois aceito** — o
+que mudou foi o score, e o score não é gravado.
+
+As cinco colunas são prescritas pelo enunciado, então o código está fiel: a
+lacuna vem do esquema, não da implementação. Acrescentar `score_na_decisao`
+resolveria e é o que um sistema real faria, mas desvia de uma especificação
+explícita — por isso está documentado aqui em vez de decidido sozinho.
+
+Mitigação parcial hoje: o log de aplicação registra o score no momento da
+decisão, com CPF mascarado. A reconstrução é possível cruzando log e CSV, o
+que é frágil demais para uma auditoria de crédito de verdade.
+
+### 6. Provar que a transferência é imperceptível
 
 Este é o requisito mais difícil de testar, porque o texto vem do modelo.
 
@@ -296,7 +321,7 @@ O que foi feito em vez disso, atacando o problema pelas bordas determinísticas:
 - **Varredura reutilizável** — `marcas_de_transferencia()` é pública e serve
   tanto para os testes com roteiro quanto para auditar uma conversa real.
 
-### 6. Um bug de sinal que quase passou
+### 7. Um bug de sinal que quase passou
 
 O parser de valor monetário aceita linguagem natural ("R$ 12 mil", "5k",
 "1.234,56"). Ele limpava a entrada com `re.sub(r"[^0-9.,]", "", texto)` — o que
@@ -307,14 +332,14 @@ O teste que pegou isso esperava rejeição com uma mensagem; a correção foi
 detectar o sinal **antes** de limpar a pontuação. Vale registrar que a tentação
 aqui era ajustar o teste, e não o código.
 
-### 7. Ambiguidade `rejeitado` vs `reprovado`
+### 8. Ambiguidade `rejeitado` vs `reprovado`
 
 O enunciado usa `'rejeitado'` na definição da coluna e `'reprovado'` no texto
 corrido. Adotei **`rejeitado`** como valor canônico (ADR-002), com domínio
 fechado `{pendente, aprovado, rejeitado}` validado no modelo. `reprovado` não
 existe em lugar nenhum do código.
 
-### 8. Streamlit re-executa o script inteiro
+### 9. Streamlit re-executa o script inteiro
 
 A cada interação, o script roda do começo. Isso quebra duas coisas de forma
 sutil: os handlers de log se acumulam e cada linha sai duplicada; e escritas

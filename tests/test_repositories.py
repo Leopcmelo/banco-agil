@@ -341,3 +341,36 @@ def test_restaurar_seed_desfaz_as_alteracoes(tmp_path):
 def test_restaurar_seed_sem_diretorio_falha(repo):
     with pytest.raises(ArquivoDeDadosError, match="semente"):
         repo.restaurar_seed(repo.diretorio / "inexistente")
+
+
+def test_trilha_nao_distingue_pedidos_iguais_com_desfechos_opostos(repo):
+    """Limitação conhecida do esquema, travada como teste para não surpreender.
+
+    Duas solicitações idênticas em CPF, limite atual e valor pedido podem ter
+    desfechos opostos (o score mudou entre elas), e o CSV não guarda o score.
+    Se um dia o esquema ganhar a base da decisão, este teste falha e avisa
+    que o README precisa ser atualizado junto.
+    """
+    from datetime import datetime
+
+    for indice, status in enumerate((STATUS_REJEITADO := "rejeitado", "aprovado")):
+        pedido = repo.registrar_solicitacao(
+            Solicitacao.nova(
+                CPF_COM_ZEROS,
+                limite_atual=300,
+                novo_limite_solicitado=3000,
+                agora=datetime(2026, 8, 28, 15, 47, indice, tzinfo=UTC),
+            )
+        )
+        repo.atualizar_status_solicitacao(
+            CPF_COM_ZEROS, pedido.data_hora_solicitacao, status
+        )
+
+    linhas = repo.listar_solicitacoes()
+    assert [s.status_pedido for s in linhas] == [STATUS_REJEITADO, "aprovado"]
+    # Tudo o que distingue as duas linhas é o carimbo e o desfecho.
+    assert linhas[0].limite_atual == linhas[1].limite_atual
+    assert linhas[0].novo_limite_solicitado == linhas[1].novo_limite_solicitado
+    assert not hasattr(
+        linhas[0], "score"
+    ), "O esquema ganhou a base da decisão — atualize a limitação no README."
