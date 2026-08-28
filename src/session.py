@@ -60,7 +60,12 @@ class SessionState:
     """Tudo o que o atendimento precisa lembrar entre uma mensagem e outra."""
 
     # --- autenticação ---
-    autenticado: bool = False
+    # Campo privado com propriedade somente-leitura: `autenticado` é a
+    # invariante mais importante do sistema, e antes desta mudança ela era
+    # apenas convenção. Qualquer `sessao.autenticado = True` escrito por
+    # engano agora falha na hora, em vez de abrir acesso silenciosamente.
+    # A única transição continua sendo `autenticar()`.
+    _autenticado: bool = False
     cpf: str | None = None
     nome_cliente: str | None = None
     tentativas_auth: int = 0
@@ -83,6 +88,11 @@ class SessionState:
     # ---------------------------------------------------------------- #
 
     @property
+    def autenticado(self) -> bool:
+        """Somente leitura. Para autenticar, use `autenticar()`."""
+        return self._autenticado
+
+    @property
     def tentativas_restantes(self) -> int:
         return max(0, MAX_TENTATIVAS_AUTH - self.tentativas_auth)
 
@@ -102,7 +112,7 @@ class SessionState:
             raise PermissionError(
                 "Sessão bloqueada por excesso de tentativas de autenticação."
             )
-        self.autenticado = True
+        self._autenticado = True
         self.cpf = cpf
         self.nome_cliente = nome_cliente
 

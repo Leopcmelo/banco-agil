@@ -25,8 +25,8 @@ from src.services.cambio_api import (
 from src.tools.base import (
     ContextoAtendimento,
     Resposta,
-    bloqueado,
     erro,
+    exige_sessao_operavel,
     ok,
     tratar_falhas,
 )
@@ -35,20 +35,13 @@ logger = logging.getLogger(__name__)
 
 
 @tratar_falhas
+@exige_sessao_operavel
 def consultar_cotacao(
     contexto: ContextoAtendimento,
     moeda: str = "USD",
     moeda_destino: str = "BRL",
 ) -> Resposta:
     """Cotação atual de uma moeda. Sem moeda informada, assume dólar."""
-    sessao = contexto.sessao
-
-    if sessao.bloqueado or sessao.encerrado:
-        return bloqueado(
-            "Este atendimento já foi encerrado.",
-            motivo="atendimento_encerrado",
-        )
-
     try:
         cotacao = obter_cotacao(moeda, moeda_destino)
     except MoedaNaoSuportadaError as exc:
@@ -83,6 +76,7 @@ def consultar_cotacao(
 
 
 @tratar_falhas
+@exige_sessao_operavel
 def converter_valor(
     contexto: ContextoAtendimento,
     valor: object,
@@ -99,14 +93,6 @@ def converter_valor(
     `BRL-USD`, e não o inverso de `USD-BRL`. Inverter introduziria erro e
     ignoraria o spread entre compra e venda.
     """
-    sessao = contexto.sessao
-
-    if sessao.bloqueado or sessao.encerrado:
-        return bloqueado(
-            "Este atendimento já foi encerrado.",
-            motivo="atendimento_encerrado",
-        )
-
     try:
         montante = normalizar_valor_monetario(valor, nome="Valor a converter")
     except ValorMonetarioInvalidoError as exc:

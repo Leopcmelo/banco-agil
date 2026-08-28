@@ -99,6 +99,45 @@ def exige_sessao_ativa(funcao: Callable[..., Resposta]) -> Callable[..., Respost
     return wrapper
 
 
+def exige_sessao_operavel(funcao: Callable[..., Resposta]) -> Callable[..., Resposta]:
+    """Recusa se a sessão estiver bloqueada ou encerrada — sem exigir login.
+
+    Para tools cujo dado é público (cotação, conversão): não expõem nada da
+    conta, então autenticar seria atrito sem ganho, mas uma sessão bloqueada
+    ou encerrada está fechada para tudo.
+
+    Existe como decorator porque a auditoria de segurança encontrou a mesma
+    checagem copiada à mão em cada tool de câmbio: uma tool nova poderia
+    esquecê-la, e o esquecimento não apareceria em lugar nenhum.
+    """
+
+    @functools.wraps(funcao)
+    def wrapper(contexto: ContextoAtendimento, *args: Any, **kwargs: Any) -> Resposta:
+        sessao = contexto.sessao
+
+        if sessao.bloqueado:
+            logger.warning(
+                "Tool %s recusada: sessão bloqueada por excesso de tentativas.",
+                funcao.__name__,
+            )
+            return bloqueado(
+                "O atendimento foi encerrado porque não foi possível "
+                "confirmar a identidade.",
+                motivo="autenticacao_bloqueada",
+            )
+
+        if sessao.encerrado:
+            logger.info("Tool %s recusada: atendimento já encerrado.", funcao.__name__)
+            return bloqueado(
+                "Este atendimento já foi encerrado.",
+                motivo="atendimento_encerrado",
+            )
+
+        return funcao(contexto, *args, **kwargs)
+
+    return wrapper
+
+
 def tratar_falhas(funcao: Callable[..., Resposta]) -> Callable[..., Resposta]:
     """Rede de segurança: qualquer exceção inesperada vira resposta `erro`.
 

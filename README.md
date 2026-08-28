@@ -418,9 +418,13 @@ comparando as duas mensagens.
 O filtro age na mensagem já formatada no logger. Confiar em cada `logger.info`
 lembrar de mascarar é frágil; um filtro pega também o que passou despercebido.
 
-Efeito colateral aceito: timestamps ISO nos logs viram `<data-oculta>`, porque
-o regex não distingue data de nascimento de data qualquer. A trilha de auditoria
-vive no CSV, não no log.
+O alcance do filtro de data é mais estreito do que parece, e isso é bom: ele
+casa `1988-03-14` e `14/03/1988` isolados, mas **não** casa o timestamp ISO de
+uma solicitação (`2026-08-28T13:48:00-03:00`), porque o `T` grudado no dia
+quebra a fronteira de palavra. Na prática a data de nascimento é mascarada e o
+carimbo de auditoria sobrevive — verificado na auditoria de segurança, contra
+o log real de uma sessão no navegador: zero CPFs crus, zero datas de
+nascimento, timestamps intactos.
 
 ---
 

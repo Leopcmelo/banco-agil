@@ -196,14 +196,36 @@ def test_tool_protegida_recusa_apos_encerramento(autenticado, tool, args):
     assert r["status"] == STATUS_BLOQUEADO
 
 
-def test_flag_de_autenticado_forjada_ainda_precisa_de_cpf(contexto):
-    """Mesmo que algo marque `autenticado`, sem CPF a tool falha de forma
-    controlada — não devolve dado de outro cliente."""
-    contexto.sessao.autenticado = True
+def test_nao_da_para_forjar_autenticacao_por_atribuicao(contexto):
+    """`autenticado` é somente leitura — achado da auditoria de segurança.
+
+    Antes era um campo comum: `sessao.autenticado = True` junto com um CPF
+    qualquer devolvia o limite daquele cliente. Nenhum caminho de produção
+    fazia isso, mas a invariante mais importante do sistema não podia
+    depender de convenção.
+    """
+    with pytest.raises(AttributeError):
+        contexto.sessao.autenticado = True
+    assert consultar_limite(contexto)["dados"]["motivo"] == "nao_autenticado"
+
+
+def test_sessao_autenticada_sem_cpf_falha_controlada(contexto):
+    """Estado inconsistente não pode virar dado de outro cliente."""
+    contexto.sessao.autenticar("00553479326", "Ana")
     contexto.sessao.cpf = None
     r = consultar_limite(contexto)
     assert r["status"] == STATUS_ERRO
     assert r["dados"]["motivo"] == "falha_interna"
+
+
+def test_reautenticar_nao_troca_de_cliente(contexto):
+    """Sequestro de sessão: credenciais VÁLIDAS de outro cliente no meio da
+    conversa não podem trocar o titular."""
+    autenticar_cliente(contexto, CPF_ANA, NASC_ANA)
+    r = autenticar_cliente(contexto, "39819391903", "1979-07-30")  # Carla
+    assert r["dados"]["nome_cliente"] == "Ana Beatriz Cardoso"
+    assert contexto.sessao.cpf == CPF_ANA
+    assert consultar_limite(contexto)["dados"]["limite_atual"] == 8000.00
 
 
 def test_nenhum_dado_de_cliente_vaza_na_recusa(contexto):
@@ -570,3 +592,19 @@ def test_cotacao_zero_nao_zera_o_dinheiro_do_cliente(contexto, monkeypatch):
     r = converter_valor(contexto, "8000")
     assert r["status"] == STATUS_ERRO
     assert r["dados"]["motivo"] == "cotacao_invalida"
+
+
+def test_cambio_recusa_por_decorator_e_deixa_rastro(contexto, caplog):
+    """A checagem do câmbio virou decorator: antes era copiada à mão em cada
+    tool e não registrava a recusa em log."""
+    import logging
+
+    for _ in range(3):
+        autenticar_cliente(contexto, CPF_ANA, "01/01/1990")
+
+    with caplog.at_level(logging.WARNING, logger="src.tools.base"):
+        assert consultar_cotacao(contexto)["status"] == STATUS_BLOQUEADO
+        assert converter_valor(contexto, "100")["status"] == STATUS_BLOQUEADO
+
+    assert "consultar_cotacao" in caplog.text
+    assert "converter_valor" in caplog.text
