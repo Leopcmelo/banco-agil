@@ -579,10 +579,30 @@ construção.
 
 ### Qualidade
 
+Duas ferramentas com papéis distintos: o **black** decide como o código se
+parece (quebra de linha, aspas, espaçamento) e o **ruff** aponta o que está
+errado (import não usado, `except` que apaga a causa raiz, construção antiga
+com forma moderna melhor).
+
 ```bash
-ruff check src tests app.py
-black --check src tests app.py
+ruff check src tests app.py scripts
+black --check src tests app.py scripts
 ```
+
+Para não descobrir um problema de lint só quando a CI reclama — que já
+aconteceu neste projeto — instale o hook uma vez:
+
+```bash
+pre-commit install
+```
+
+A partir daí, todo commit roda black e ruff nos arquivos alterados e é barrado
+se algo falhar. O hook usa o black e o ruff do próprio venv, nas versões
+fixadas em `requirements.txt`: se cada um instalasse a sua, voltaria a existir
+a chance de passar localmente e falhar na CI.
+
+Ele também bloqueia chave de API commitada por engano — o `.gitignore` cobre o
+`.env`, mas não cobre uma chave colada dentro de um `.py`.
 
 ---
 

@@ -1,0 +1,49 @@
+# Roda black e ruff antes de cada commit, nos arquivos que estão sendo
+# commitados. Existe porque um commit com lint quebrado já chegou na CI: a
+# saída do ruff dizia "Found 1 error" e passou despercebida no meio do output.
+#
+# Instalação (uma vez, com o venv ativo):
+#     pre-commit install
+#
+# `repo: local` + `language: system` de propósito: os hooks usam o black e o
+# ruff do próprio venv, nas versões fixadas em requirements.txt. Se cada hook
+# instalasse a sua própria versão, voltaria a existir a chance de passar aqui
+# e falhar na CI — que é justamente o problema que este arquivo resolve.
+repos:
+  - repo: local
+    hooks:
+      - id: black
+        name: black (formata)
+        entry: black
+        language: system
+        types: [python]
+
+      - id: ruff
+        name: ruff (aponta problemas)
+        entry: ruff check
+        language: system
+        types: [python]
+
+  # Higiene básica de arquivo, para não gastar review com isso.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-merge-conflict
+      # Pega chave PEM/SSH. NÃO pega chave de API — testado: uma string
+      # "sk-ant-..." passa direto por ele. Quem cobre isso é o hook abaixo.
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      # Rede de segurança contra o acidente mais caro deste projeto: commitar
+      # uma chave de API. O .gitignore já cobre o .env, mas não cobre a chave
+      # colada por engano dentro de um .py ou de um notebook.
+      - id: chaves-de-api
+        name: chaves de API (Anthropic, Google)
+        entry: 'sk-ant-[A-Za-z0-9_-]{20}|AIza[0-9A-Za-z_-]{30}|AQ\.[A-Za-z0-9_-]{25}'
+        language: pygrep
+        types: [text]
+        exclude: ^\.pre-commit-config\.yaml$
