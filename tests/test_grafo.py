@@ -848,4 +848,4 @@ def test_todo_agente_tem_titulo_para_a_interface():
     assert titulos == {"Triagem", "Crédito", "Entrevista de Crédito", "Câmbio"}
     # Nome próprio, não o identificador interno.
     for nome, modulo in AGENTES.items():
-        assert modulo.TITULO != nome
+        assert nome != modulo.TITULO
