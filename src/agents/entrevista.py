@@ -20,6 +20,7 @@ from src.tools import registrar_resposta_entrevista as _registrar_resposta
 from src.tools.base import ContextoAtendimento
 
 NOME = "entrevista"
+TITULO = "Entrevista de Crédito"
 
 
 def prompt() -> str:

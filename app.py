@@ -19,7 +19,7 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from src.agents.grafo import Atendimento, criar_llm
+from src.agents.grafo import AGENTES, Atendimento, criar_llm
 from src.core.conversao import formatar_valor_br
 from src.core.validadores import formatar_cpf
 from src.data.repositories import RepositorioBancoAgil, RepositorioError
@@ -116,7 +116,19 @@ with st.sidebar:
     if resumo["encerrado"]:
         st.warning("Atendimento encerrado")
 
-    st.caption(f"Assunto atual: `{atendimento.agente_ativo if atendimento else '—'}`")
+    # O rótulo antigo dizia "Assunto atual", mas o valor sempre foi o nome do
+    # agente. Nomear o que é: para o avaliador, ver o agente mudar de Triagem
+    # para Crédito é a evidência de que a orquestração funciona — evidência
+    # que o cliente, do outro lado, nunca vê (ADR-004).
+    if atendimento:
+        ativo = AGENTES[atendimento.agente_ativo].TITULO
+        st.caption(f"Agente ativo: **{ativo}**")
+        st.caption(
+            "Painel de inspeção — o cliente não vê esta troca, "
+            "para ele o atendimento é um só."
+        )
+    else:
+        st.caption("Agente ativo: —")
 
     entrevista_iniciada = any(
         v is not None for v in contexto.sessao.entrevista.as_dict().values()

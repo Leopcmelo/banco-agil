@@ -17,6 +17,7 @@ from src.tools import autenticar_cliente as _autenticar_cliente
 from src.tools.base import ContextoAtendimento
 
 NOME = "triagem"
+TITULO = "Triagem"
 
 
 def prompt() -> str:

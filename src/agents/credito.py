@@ -19,6 +19,7 @@ from src.tools import solicitar_aumento_limite as _solicitar_aumento
 from src.tools.base import ContextoAtendimento
 
 NOME = "credito"
+TITULO = "Crédito"
 
 
 def prompt() -> str:

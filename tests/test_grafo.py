@@ -835,3 +835,17 @@ def test_prompt_proibe_narrar_a_autenticacao():
     for marca in MARCAS_DE_ROBO:
         assert marca in texto, f"o prompt precisa proibir {marca!r}"
     assert "não narre a autenticação" in texto
+
+
+def test_todo_agente_tem_titulo_para_a_interface():
+    """O painel mostra qual agente está atendendo, com nome próprio.
+
+    O título fica no módulo do agente, e não num dicionário na UI: assim quem
+    criar um agente novo esbarra no campo faltando aqui, em vez de descobrir
+    pela tela quebrada.
+    """
+    titulos = {modulo.TITULO for modulo in AGENTES.values()}
+    assert titulos == {"Triagem", "Crédito", "Entrevista de Crédito", "Câmbio"}
+    # Nome próprio, não o identificador interno.
+    for nome, modulo in AGENTES.items():
+        assert modulo.TITULO != nome

@@ -16,6 +16,7 @@ from src.tools import converter_valor as _converter_valor
 from src.tools.base import ContextoAtendimento
 
 NOME = "cambio"
+TITULO = "Câmbio"
 
 
 def prompt() -> str:
